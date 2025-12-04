@@ -349,7 +349,7 @@ export const InspectionForm: React.FC<InspectionFormProps> = ({
                             value={formData.client?.cpf || ''}
                             onChange={e => handleClientChange('cpf', maskCpfCnpj(e.target.value))}
                             required
-                            placeholder="000.000.000-00"
+                            placeholder="000.000.000-00 ou 00.000.000/0000-00"
                             maxLength={18}
                         />
                      </div>

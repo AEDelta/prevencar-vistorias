@@ -72,6 +72,11 @@ export const InspectionList: React.FC<InspectionListProps> = ({ inspections, onE
   const totalPaid = filtered.filter(i => i.status === 'Concluída').reduce((acc, curr) => acc + (curr.totalValue || 0), 0);
   const totalPending = filtered.filter(i => i.status !== 'Concluída').reduce((acc, curr) => acc + (curr.totalValue || 0), 0);
 
+  // Counts
+  const totalCount = filtered.length;
+  const completedCount = filtered.filter(i => i.status === 'Concluída').length;
+  const pendingCount = filtered.filter(i => i.status !== 'Concluída').length;
+
   const handleExport = async (type: 'pdf' | 'excel') => {
     try {
       if (filtered.length === 0) {
@@ -130,6 +135,22 @@ export const InspectionList: React.FC<InspectionListProps> = ({ inspections, onE
                 <Button onClick={onCreate} className="flex-1 md:flex-none shadow-lg shadow-red-200">
                     <Plus size={20} className="mr-2" /> Nova Vistoria
                 </Button>
+            </div>
+        </div>
+
+        {/* Operational Summary Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="bg-blue-50 p-4 rounded-xl shadow-sm border border-blue-100">
+                <p className="text-blue-600 text-xs uppercase font-bold">Total de Vistorias</p>
+                <p className="text-3xl font-bold text-blue-700">{totalCount}</p>
+            </div>
+            <div className="bg-green-50 p-4 rounded-xl shadow-sm border border-green-100">
+                <p className="text-green-600 text-xs uppercase font-bold">Concluídas</p>
+                <p className="text-3xl font-bold text-green-700">{completedCount}</p>
+            </div>
+            <div className="bg-orange-50 p-4 rounded-xl shadow-sm border border-orange-100">
+                <p className="text-orange-600 text-xs uppercase font-bold">Pendentes</p>
+                <p className="text-3xl font-bold text-orange-700">{pendingCount}</p>
             </div>
         </div>
 
