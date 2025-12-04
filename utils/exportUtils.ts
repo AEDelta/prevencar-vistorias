@@ -14,6 +14,26 @@ const formatCurrency = (val: number) => {
   return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
 };
 
+const formatCpfCnpj = (value: string) => {
+  const cleaned = (value || '').replace(/\D/g, '');
+  const length = cleaned.length;
+
+  if (length <= 11) {
+    return cleaned
+      .replace(/^(\d{3})(\d)/, '$1.$2')
+      .replace(/^(\d{3})\.(\d{3})(\d)/, '$1.$2.$3')
+      .replace(/\.(\d{3})(\d)/, '.$1-$2')
+      .slice(0, 14);
+  }
+
+  return cleaned
+    .replace(/^(\d{2})(\d)/, '$1.$2')
+    .replace(/^(\d{2})\.(\d{3})(\d)/, '$1.$2.$3')
+    .replace(/\.(\d{3})(\d)/, '.$1/$2')
+    .replace(/(\d{4})(\d)/, '$1-$2')
+    .slice(0, 18);
+};
+
 const formatDate = (dateString: string) => {
   return new Date(dateString).toLocaleDateString('pt-BR');
 };
@@ -29,7 +49,7 @@ export const exportToExcel = (inspections: Inspection[], filename: string = 'vis
       'Placa': inspection.licensePlate,
       'Modelo': inspection.vehicleModel,
       'Cliente': inspection.client.name,
-      'CPF/CNPJ': inspection.client.cpf,
+      'CPF/CNPJ': formatCpfCnpj(inspection.client.cpf),
       'Endereço': inspection.client.address,
       'CEP': inspection.client.cep,
       'Contato': inspection.contact || '-',
@@ -181,7 +201,7 @@ export const exportInspectionDetailToPDF = async (
     pdf.setFontSize(10);
     pdf.text(`Nome: ${inspection.client.name}`, margin, yPosition);
     yPosition += 5;
-    pdf.text(`CPF/CNPJ: ${inspection.client.cpf}`, margin, yPosition);
+    pdf.text(`CPF/CNPJ: ${formatCpfCnpj(inspection.client.cpf)}`, margin, yPosition);
     yPosition += 5;
     pdf.text(`Endereço: ${inspection.client.address}, ${inspection.client.number}${inspection.client.complement ? ', ' + inspection.client.complement : ''}`, margin, yPosition);
     yPosition += 5;

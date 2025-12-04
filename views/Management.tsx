@@ -514,7 +514,7 @@ export const Management: React.FC<ManagementProps> = ({
                                 {indications.map(p => (
                                     <tr key={p.id} className="hover:bg-gray-50 transition-colors">
                                         <td className="p-4 font-medium text-gray-800">{p.name}</td>
-                                        <td className="p-4 text-gray-600 font-mono text-sm">{p.document}</td>
+                                        <td className="p-4 text-gray-600 font-mono text-sm">{maskDocument(p.document || '')}</td>
                                         <td className="p-4 text-gray-600 text-sm">{p.phone}</td>
                                         <td className="p-4 text-right flex justify-end items-center gap-2">
                                             <button type="button" onClick={() => prepareEdit(p.id, 'indication')} className="text-gray-400 hover:text-brand-blue p-2 rounded-lg hover:bg-blue-50 transition-colors" title="Editar">
@@ -560,8 +560,8 @@ export const Management: React.FC<ManagementProps> = ({
                         />
                         <Input
                             label="CPF / CNPJ"
-                            value={indicationForm.document || ''}
-                            onChange={e => setIndicationForm({...indicationForm, document: maskDocument(e.target.value)})}
+                            value={maskDocument(indicationForm.document || '')}
+                            onChange={e => setIndicationForm({...indicationForm, document: e.target.value.replace(/\D/g, '')})}
                             required
                             className="bg-gray-50"
                             maxLength={18}

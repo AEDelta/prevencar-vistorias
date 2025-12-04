@@ -99,6 +99,25 @@ export const InspectionList: React.FC<InspectionListProps> = ({ inspections, onE
     }
   };
 
+    const handleExportSelectedPDF = async () => {
+        try {
+            if (selectedIds.length === 0) {
+                alert('Nenhum item selecionado para exportar');
+                return;
+            }
+            const itemsToExport = inspections.filter(i => selectedIds.includes(i.id));
+            if (itemsToExport.length === 0) {
+                alert('Nenhum item válido selecionado para exportar');
+                return;
+            }
+            const timestamp = new Date().toISOString().split('T')[0];
+            await exportToPDF(itemsToExport, `vistorias_selecionadas_${timestamp}.pdf`);
+        } catch (error) {
+            console.error('Erro ao exportar selecionados para PDF:', error);
+            alert('Erro ao exportar selecionados para PDF');
+        }
+    };
+
   const clearFilters = () => {
       setFilterStatus('Todos');
       setDateStart('');
@@ -262,26 +281,38 @@ export const InspectionList: React.FC<InspectionListProps> = ({ inspections, onE
                     </div>
                 )}
 
-                {/* Bulk Actions */}
-                {(currentUser?.role === 'admin' || currentUser?.role === 'financeiro') && selectedIds.length > 0 && (
+                {/* Bulk Actions: mostrar para admin/financeiro sempre (permissão) */}
+                {(currentUser?.role === 'admin' || currentUser?.role === 'financeiro') && (
                     <div className="mt-4 p-4 bg-green-50 border border-green-100 rounded-xl flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
                         <div className="text-sm text-green-700">
                             <strong>{selectedIds.length}</strong> item(s) selecionado(s)
                         </div>
                         <div className="flex gap-2">
                             <Button
-                                onClick={() => setSelectedIds(filtered.filter(i => i.paymentMethod === PaymentMethod.A_PAGAR).map(i => i.id))}
+                                onClick={() => setSelectedIds(filtered.filter(i => i.paymentMethod === PaymentMethod.A_PAGAR && i.status !== 'Pago').map(i => i.id))}
                                 variant="outline"
                                 className="border-green-200 text-green-700 hover:bg-green-100"
                             >
                                 Selecionar Todos 'A Pagar'
                             </Button>
                             <Button
+                                onClick={handleExportSelectedPDF}
+                                variant="outline"
+                                className="border-blue-200 text-blue-700 hover:bg-blue-100"
+                            >
+                                Exportar Selecionados (PDF)
+                            </Button>
+                            <Button
                                 onClick={() => {
+                                    if (selectedIds.length === 0) {
+                                        alert('Nenhum item selecionado');
+                                        return;
+                                    }
+                                    if (!window.confirm(`Deseja marcar ${selectedIds.length} item(s) como Pago?`)) return;
                                     onBulkUpdate(selectedIds, 'Pago');
                                     setSelectedIds([]);
                                 }}
-                                className="bg-green-600 hover:bg-green-700"
+                                className={`bg-green-600 hover:bg-green-700 ${selectedIds.length === 0 ? 'opacity-60 pointer-events-none' : ''}`}
                             >
                                 Marcar como Pagos
                             </Button>
@@ -302,7 +333,20 @@ export const InspectionList: React.FC<InspectionListProps> = ({ inspections, onE
                             <th className="p-4">Pagamento</th>
                             <th className="p-4">Valor</th>
                             <th className="p-4">Status</th>
-                            <th className="p-4 text-center">Selecionar</th>
+                            <th className="p-4 text-center">
+                                <input
+                                    type="checkbox"
+                                    checked={filtered.length > 0 && selectedIds.length === filtered.length}
+                                    onChange={(e) => {
+                                        if (e.target.checked) {
+                                            setSelectedIds(filtered.map(i => i.id));
+                                        } else {
+                                            setSelectedIds([]);
+                                        }
+                                    }}
+                                    className="w-4 h-4 text-brand-blue bg-gray-100 border-gray-300 rounded focus:ring-brand-blue focus:ring-2"
+                                />
+                            </th>
                             <th className="p-4 text-right">Ações</th>
                         </tr>
                     </thead>

@@ -224,7 +224,7 @@ export const InspectionForm: React.FC<InspectionFormProps> = ({
                   <div className="p-2 bg-gray-50 rounded"><strong>Placa:</strong> {formData.licensePlate}</div>
                   <div className="p-2 bg-gray-50 rounded"><strong>Modelo:</strong> {formData.vehicleModel}</div>
                   <div className="p-2 bg-gray-50 rounded"><strong>Cliente:</strong> {formData.client?.name}</div>
-                  <div className="p-2 bg-gray-50 rounded"><strong>CPF/CNPJ:</strong> {formData.client?.cpf}</div>
+                  <div className="p-2 bg-gray-50 rounded"><strong>CPF/CNPJ:</strong> {maskCpfCnpj(formData.client?.cpf || '')}</div>
                   <div className="p-2 bg-gray-50 rounded col-span-2"><strong>Serviços:</strong> {formData.selectedServices?.join(', ')}</div>
                   <div className="p-2 bg-gray-50 rounded col-span-2"><strong>Observações:</strong> {formData.observations || '-'}</div>
                   <div className="p-2 bg-gray-50 rounded"><strong>Status:</strong> {formData.status}</div>
@@ -358,8 +358,8 @@ export const InspectionForm: React.FC<InspectionFormProps> = ({
                         />
                         <Input
                             label="CPF/CNPJ"
-                            value={formData.client?.cpf || ''}
-                            onChange={e => handleClientChange('cpf', maskCpfCnpj(e.target.value))}
+                            value={maskCpfCnpj(formData.client?.cpf || '')}
+                            onChange={e => handleClientChange('cpf', e.target.value.replace(/\D/g, ''))}
                             required
                             placeholder="000.000.000-00 ou 00.000.000/0000-00"
                             maxLength={18}
