@@ -1,5 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { ViewState, Inspection, User, Role, Indication, ServiceItem } from './types';
+import { db } from './firebase';
+import {
+  collection,
+  onSnapshot,
+  addDoc,
+  setDoc,
+  doc,
+  deleteDoc,
+  query,
+  orderBy,
+  getDocs
+} from 'firebase/firestore';
 import { Layout } from './components/Layout';
 import { Login } from './views/Login';
 import { ForgotPassword } from './views/ForgotPassword';
@@ -103,6 +115,23 @@ const App: React.FC = () => {
 
   const [editingInspection, setEditingInspection] = useState<Inspection | null>(null);
 
+  const useFirestore = Boolean(import.meta.env.VITE_FIREBASE_PROJECT_ID);
+
+  // If Firestore is configured, subscribe to real-time updates and use Firestore as source of truth.
+  useEffect(() => {
+    if (!useFirestore) return;
+
+    const q = query(collection(db, 'inspections'), orderBy('date', 'desc'));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const items: Inspection[] = snapshot.docs.map(d => ({ id: d.id, ...(d.data() as any) }));
+      setInspections(items);
+    }, (err) => {
+      console.error('Erro ao sincronizar inspeções do Firestore', err);
+    });
+
+    return () => unsubscribe();
+  }, []);
+
   // Authentication Handlers
   const handleLogin = (email: string) => {
     // Simulated Role Assignment based on email
@@ -151,14 +180,30 @@ const App: React.FC = () => {
     if (currentUser?.role === 'vistoriador') {
         return; // Protection check
     }
-    setInspections(prev => prev.filter(i => i.id !== id));
+    if (useFirestore) {
+      // delete from firestore
+      deleteDoc(doc(db, 'inspections', id)).catch(err => console.error('Erro ao deletar no Firestore', err));
+    } else {
+      setInspections(prev => prev.filter(i => i.id !== id));
+    }
   };
 
   const handleSaveInspection = (inspection: Inspection) => {
-    if (editingInspection) {
-      setInspections(prev => prev.map(i => i.id === inspection.id ? inspection : i));
+    if (useFirestore) {
+      const inspectionsCol = collection(db, 'inspections');
+      if (inspection.id) {
+        // update existing (ensure doc id preserved)
+        setDoc(doc(db, 'inspections', inspection.id), { ...inspection }).catch(err => console.error('Erro ao salvar no Firestore', err));
+      } else {
+        // add new (firestore will generate id)
+        addDoc(inspectionsCol, { ...inspection }).catch(err => console.error('Erro ao adicionar no Firestore', err));
+      }
     } else {
-      setInspections(prev => [inspection, ...prev]);
+      if (editingInspection) {
+        setInspections(prev => prev.map(i => i.id === inspection.id ? inspection : i));
+      } else {
+        setInspections(prev => [inspection, ...prev]);
+      }
     }
     setCurrentView(ViewState.INSPECTION_LIST);
   };

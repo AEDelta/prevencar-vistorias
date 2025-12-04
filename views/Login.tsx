@@ -3,6 +3,8 @@ import { ViewState } from '../types';
 import { ShieldCheck } from 'lucide-react';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
+import { auth } from '../firebase';
+import { signInWithEmailAndPassword } from 'firebase/auth';
 
 interface LoginProps {
   onLogin: (email: string) => void;
@@ -17,11 +19,20 @@ export const Login: React.FC<LoginProps> = ({ onLogin, changeView }) => {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    // Simulate API call
-    setTimeout(() => {
-      setLoading(false);
-      onLogin(email);
-    }, 1000);
+    // Real Firebase authentication
+    signInWithEmailAndPassword(auth, email, password)
+      .then((userCredential) => {
+        setLoading(false);
+        const user = userCredential.user;
+        // Pass user email (or uid) back to app
+        onLogin(user.email ?? email);
+      })
+      .catch((error) => {
+        setLoading(false);
+        // Basic error handling — improve as needed
+        const message = error?.message || 'Erro ao autenticar';
+        alert(message);
+      });
   };
 
   return (
