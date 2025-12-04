@@ -60,8 +60,11 @@ export const InspectionForm: React.FC<InspectionFormProps> = ({
   useEffect(() => {
     if (inspectionToEdit) {
       setFormData(inspectionToEdit);
+    } else if (currentUser?.role === 'vistoriador') {
+      const firstName = currentUser.name.split(' ')[0];
+      setFormData(prev => ({ ...prev, inspector: firstName }));
     }
-  }, [inspectionToEdit]);
+  }, [inspectionToEdit, currentUser]);
 
   // Logic to fetch address from CEP
   const handleCepBlur = async () => {
@@ -265,17 +268,26 @@ export const InspectionForm: React.FC<InspectionFormProps> = ({
                     />
                     <div className="flex flex-col mb-4">
                         <label className="text-sm font-semibold text-brand-blue mb-1">Vistoriador Responsável</label>
-                        <select
-                            className="border-2 border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-blue"
-                            value={formData.inspector || ''}
-                            onChange={e => handleChange('inspector', e.target.value)}
-                            required
-                        >
-                            <option value="">Selecione...</option>
-                            {Object.values(Inspector).map(insp => (
-                            <option key={insp} value={insp}>{insp}</option>
-                            ))}
-                        </select>
+                        {currentUser?.role === 'vistoriador' ? (
+                            <input
+                                type="text"
+                                className="border-2 border-gray-300 rounded-lg px-3 py-2 bg-gray-100 text-gray-700 cursor-not-allowed"
+                                value={formData.inspector || ''}
+                                readOnly
+                            />
+                        ) : (
+                            <select
+                                className="border-2 border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-blue"
+                                value={formData.inspector || ''}
+                                onChange={e => handleChange('inspector', e.target.value)}
+                                required
+                            >
+                                <option value="">Selecione...</option>
+                                {Object.values(Inspector).map(insp => (
+                                <option key={insp} value={insp}>{insp}</option>
+                                ))}
+                            </select>
+                        )}
                     </div>
                 </div>
 

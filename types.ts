@@ -53,11 +53,11 @@ export interface Inspection {
   selectedServices: string[]; // Changed to array for checkboxes
   customServiceDetail?: string;
   client: Client;
-  inspector?: Inspector;
+  inspector?: string;
   indicationId?: string; // Link to Indication (Provider)
   indicationName?: string;
   observations?: string;
-  
+
   // Step 2 Data
   paymentMethod?: PaymentMethod;
   nfe?: string;
