@@ -120,7 +120,12 @@ export const Management: React.FC<ManagementProps> = ({
 
   const submitUser = (e: React.FormEvent) => {
       e.preventDefault();
-      onSaveUser({ ...userForm, role: userForm.role || 'vistoriador' } as User);
+      let userToSave = { ...userForm, role: userForm.role || 'vistoriador' } as User;
+      if (editingId && !userToSave.password) {
+          const existing = users.find(u => u.id === editingId);
+          if (existing) userToSave.password = existing.password;
+      }
+      onSaveUser(userToSave);
       setViewMode('list');
   };
 
@@ -353,7 +358,7 @@ export const Management: React.FC<ManagementProps> = ({
                             />
                              <div className="flex flex-col">
                                 <label className="text-sm font-semibold text-brand-blue mb-2">Nível de Acesso</label>
-                                <select 
+                                <select
                                     className="border-2 border-gray-200 rounded-lg px-4 py-3 bg-gray-50 focus:outline-none focus:ring-2 focus:ring-brand-blue focus:bg-white transition-all"
                                     value={userForm.role || 'vistoriador'}
                                     onChange={e => setUserForm({...userForm, role: e.target.value as Role})}
@@ -363,6 +368,15 @@ export const Management: React.FC<ManagementProps> = ({
                                     <option value="admin">Administrador</option>
                                 </select>
                             </div>
+                            <Input
+                                label="Senha"
+                                type="password"
+                                value={userForm.password || ''}
+                                onChange={e => setUserForm({...userForm, password: e.target.value})}
+                                required={!editingId}
+                                className="bg-gray-50"
+                                placeholder={editingId ? "Deixe em branco para manter a atual" : ""}
+                            />
                         </div>
                         
                         <div className="flex justify-between items-center pt-6">
