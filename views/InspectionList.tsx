@@ -13,14 +13,14 @@ interface InspectionListProps {
    changeView: (view: ViewState) => void;
    onCreate: () => void;
    currentUser?: User;
-   onBulkUpdate: (ids: string[], newPayment: PaymentMethod) => void;
+   onBulkUpdate: (ids: string[], newStatus: string) => void;
 }
 
 export const InspectionList: React.FC<InspectionListProps> = ({ inspections, onEdit, onDelete, onCreate, currentUser, onBulkUpdate }) => {
   const [searchTerm, setSearchTerm] = useState('');
   
   // Filters
-  const [filterStatus, setFilterStatus] = useState<'Todos' | 'Pendente' | 'No Caixa' | 'Concluída'>('Todos');
+  const [filterStatus, setFilterStatus] = useState<'Todos' | 'Pendente' | 'No Caixa' | 'Concluída' | 'Pago'>('Todos');
   const [dateStart, setDateStart] = useState('');
   const [dateEnd, setDateEnd] = useState('');
   const [filterIndication, setFilterIndication] = useState('');
@@ -71,13 +71,13 @@ export const InspectionList: React.FC<InspectionListProps> = ({ inspections, onE
 
   // Totals Calculation
   const totalValue = filtered.reduce((acc, curr) => acc + (curr.totalValue || 0), 0);
-  const totalPaid = filtered.filter(i => i.status === 'Concluída').reduce((acc, curr) => acc + (curr.totalValue || 0), 0);
-  const totalPending = filtered.filter(i => i.status !== 'Concluída').reduce((acc, curr) => acc + (curr.totalValue || 0), 0);
+  const totalPaid = filtered.filter(i => i.status === 'Concluída' || i.status === 'Pago').reduce((acc, curr) => acc + (curr.totalValue || 0), 0);
+  const totalPending = filtered.filter(i => i.status !== 'Concluída' && i.status !== 'Pago').reduce((acc, curr) => acc + (curr.totalValue || 0), 0);
 
   // Counts
   const totalCount = filtered.length;
-  const completedCount = filtered.filter(i => i.status === 'Concluída').length;
-  const pendingCount = filtered.filter(i => i.status !== 'Concluída').length;
+  const completedCount = filtered.filter(i => i.status === 'Concluída' || i.status === 'Pago').length;
+  const pendingCount = filtered.filter(i => i.status !== 'Concluída' && i.status !== 'Pago').length;
 
   const handleExport = async (type: 'pdf' | 'excel') => {
     try {
@@ -214,6 +214,7 @@ export const InspectionList: React.FC<InspectionListProps> = ({ inspections, onE
                                 <option value="Pendente">Pendente</option>
                                 <option value="No Caixa">No Caixa</option>
                                 <option value="Concluída">Concluída</option>
+                                <option value="Pago">Pago</option>
                             </select>
                         </div>
                         
@@ -277,7 +278,7 @@ export const InspectionList: React.FC<InspectionListProps> = ({ inspections, onE
                             </Button>
                             <Button
                                 onClick={() => {
-                                    onBulkUpdate(selectedIds, PaymentMethod.PAGOS);
+                                    onBulkUpdate(selectedIds, 'Pago');
                                     setSelectedIds([]);
                                 }}
                                 className="bg-green-600 hover:bg-green-700"
@@ -328,13 +329,13 @@ export const InspectionList: React.FC<InspectionListProps> = ({ inspections, onE
                                 </td>
                                 <td className="p-4">
                                     <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold border ${
-                                        item.status === 'Concluída'
+                                        item.status === 'Concluída' || item.status === 'Pago'
                                             ? 'bg-green-50 text-green-700 border-green-100'
                                             : item.status === 'No Caixa'
                                             ? 'bg-orange-50 text-orange-700 border-orange-100'
                                             : 'bg-gray-100 text-gray-600 border-gray-200'
                                     }`}>
-                                        <span className={`w-1.5 h-1.5 rounded-full mr-1.5 ${item.status === 'Concluída' ? 'bg-green-500' : item.status === 'No Caixa' ? 'bg-orange-500' : 'bg-gray-500'}`}></span>
+                                        <span className={`w-1.5 h-1.5 rounded-full mr-1.5 ${item.status === 'Concluída' || item.status === 'Pago' ? 'bg-green-500' : item.status === 'No Caixa' ? 'bg-orange-500' : 'bg-gray-500'}`}></span>
                                         {item.status}
                                     </span>
                                 </td>

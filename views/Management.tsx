@@ -41,13 +41,25 @@ interface ManagementProps {
 
 // Helper for masks
 const maskDocument = (value: string) => {
-    return value
-        .replace(/\D/g, '')
-        .replace(/^(\d{2})(\d)/, '$1.$2')
-        .replace(/^(\d{2})\.(\d{3})(\d)/, '$1.$2.$3')
-        .replace(/\.(\d{3})(\d)/, '.$1/$2')
-        .replace(/(\d{4})(\d)/, '$1-$2')
-        .slice(0, 18);
+  const cleaned = value.replace(/\D/g, '');
+  const length = cleaned.length;
+
+  if (length <= 11) {
+    // CPF mask: 000.000.000-00
+    return cleaned
+      .replace(/^(\d{3})(\d)/, '$1.$2')
+      .replace(/^(\d{3})\.(\d{3})(\d)/, '$1.$2.$3')
+      .replace(/\.(\d{3})(\d)/, '.$1-$2')
+      .slice(0, 14); // 11 digits + dots and dash
+  } else {
+    // CNPJ mask: 00.000.000/0000-00
+    return cleaned
+      .replace(/^(\d{2})(\d)/, '$1.$2')
+      .replace(/^(\d{2})\.(\d{3})(\d)/, '$1.$2.$3')
+      .replace(/\.(\d{3})(\d)/, '.$1/$2')
+      .replace(/(\d{4})(\d)/, '$1-$2')
+      .slice(0, 18);
+  }
 };
 
 const maskPhone = (value: string) => {
@@ -546,14 +558,14 @@ export const Management: React.FC<ManagementProps> = ({
                             required 
                             className="bg-gray-50" 
                         />
-                        <Input 
-                            label="CNPJ / CPF" 
-                            value={indicationForm.document || ''} 
-                            onChange={e => setIndicationForm({...indicationForm, document: maskDocument(e.target.value)})} 
-                            required 
-                            className="bg-gray-50" 
+                        <Input
+                            label="CPF / CNPJ"
+                            value={indicationForm.document || ''}
+                            onChange={e => setIndicationForm({...indicationForm, document: maskDocument(e.target.value)})}
+                            required
+                            className="bg-gray-50"
                             maxLength={18}
-                            placeholder="00.000.000/0000-00"
+                            placeholder="CPF: 000.000.000-00 ou CNPJ: 00.000.000/0000-00"
                         />
                         <Input 
                             label="Telefone" 

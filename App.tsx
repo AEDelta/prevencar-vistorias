@@ -183,9 +183,9 @@ const App: React.FC = () => {
     setCurrentView(ViewState.INSPECTION_LIST);
   };
 
-  const handleBulkUpdatePayments = (ids: string[], newPayment: PaymentMethod) => {
+  const handleBulkUpdateStatus = (ids: string[], newStatus: string) => {
     const updatedInspections = inspections.map(inspection =>
-      ids.includes(inspection.id) ? { ...inspection, paymentMethod: newPayment } : inspection
+      ids.includes(inspection.id) ? { ...inspection, status: newStatus as any } : inspection
     );
 
     if (useFirestore) {
@@ -193,7 +193,7 @@ const App: React.FC = () => {
       ids.forEach(id => {
         const inspection = inspections.find(i => i.id === id);
         if (inspection) {
-          setDoc(doc(db, 'inspections', id), { ...inspection, paymentMethod: newPayment }).catch(err => console.error('Erro ao atualizar no Firestore', err));
+          setDoc(doc(db, 'inspections', id), { ...inspection, status: newStatus }).catch(err => console.error('Erro ao atualizar no Firestore', err));
         }
       });
     } else {
@@ -263,7 +263,7 @@ const App: React.FC = () => {
               changeView={setCurrentView}
               onCreate={handleStartNewInspection}
               currentUser={currentUser}
-              onBulkUpdate={handleBulkUpdatePayments}
+              onBulkUpdate={handleBulkUpdateStatus}
             />
           </Layout>
         );

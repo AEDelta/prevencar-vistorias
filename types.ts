@@ -24,8 +24,7 @@ export enum PaymentMethod {
    DEBITO = 'Débito',
    DINHEIRO = 'Dinheiro',
    PIX = 'Pix',
-   A_PAGAR = 'A Pagar',
-   PAGOS = 'Pagos'
+   A_PAGAR = 'A Pagar'
 }
 
 export enum Inspector {
@@ -65,7 +64,7 @@ export interface Inspection {
   contact?: string; // Contact phone number
   totalValue: number;
 
-  status: 'Pendente' | 'No Caixa' | 'Concluída';
+  status: 'Pendente' | 'No Caixa' | 'Concluída' | 'Pago';
 }
 
 export interface User {

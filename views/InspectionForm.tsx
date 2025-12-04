@@ -17,13 +17,25 @@ interface InspectionFormProps {
 
 // Masks helpers
 const maskCpfCnpj = (value: string) => {
-    return value
-        .replace(/\D/g, '')
-        .replace(/^(\d{2})(\d)/, '$1.$2')
-        .replace(/^(\d{2})\.(\d{3})(\d)/, '$1.$2.$3')
-        .replace(/\.(\d{3})(\d)/, '.$1/$2')
-        .replace(/(\d{4})(\d)/, '$1-$2')
-        .slice(0, 18);
+  const cleaned = value.replace(/\D/g, '');
+  const length = cleaned.length;
+
+  if (length <= 11) {
+    // CPF mask: 000.000.000-00
+    return cleaned
+      .replace(/^(\d{3})(\d)/, '$1.$2')
+      .replace(/^(\d{3})\.(\d{3})(\d)/, '$1.$2.$3')
+      .replace(/\.(\d{3})(\d)/, '.$1-$2')
+      .slice(0, 14); // 11 digits + dots and dash
+  } else {
+    // CNPJ mask: 00.000.000/0000-00
+    return cleaned
+      .replace(/^(\d{2})(\d)/, '$1.$2')
+      .replace(/^(\d{2})\.(\d{3})(\d)/, '$1.$2.$3')
+      .replace(/\.(\d{3})(\d)/, '.$1/$2')
+      .replace(/(\d{4})(\d)/, '$1-$2')
+      .slice(0, 18);
+  }
 };
 
 const maskCep = (value: string) => {

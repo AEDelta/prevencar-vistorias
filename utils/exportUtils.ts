@@ -84,7 +84,7 @@ export const exportToPDF = async (
 ) => {
   try {
     const pdf = new jsPDF({
-      orientation: 'landscape',
+      orientation: 'portrait',
       unit: 'mm',
       format: 'a4'
     });
