@@ -1,8 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
-import { Users, Truck, Briefcase, Plus, ArrowLeft, Trash2, Edit2, User as UserIcon, Lock, Check, AlertTriangle } from 'lucide-react';
+import { Users, Truck, Briefcase, Plus, ArrowLeft, Trash2, Edit2, User as UserIcon, Lock, Check, AlertTriangle, Download, FileText } from 'lucide-react';
 import { User, Indication, ServiceItem, Role } from '../types';
+import { exportToExcel, exportToPDF } from '../utils/exportUtils';
+import * as XLSX from 'xlsx';
+import jsPDF from 'jspdf';
+import 'jspdf-autotable';
 
 // Export mock fallback data for InspectionForm dropdowns if needed
 export const MOCK_INDICATIONS_FALLBACK: Indication[] = [
@@ -149,8 +153,64 @@ export const Management: React.FC<ManagementProps> = ({
 
   const isAdmin = currentUser?.role === 'admin';
   const isFinance = currentUser?.role === 'financeiro';
-  
+
   const isProfileReadOnly = currentUser?.role !== 'admin';
+
+  const handleExportUsers = (type: 'pdf' | 'excel') => {
+    try {
+      if (users.length === 0) {
+        alert('Nenhum usuário para exportar');
+        return;
+      }
+
+      const timestamp = new Date().toISOString().split('T')[0];
+
+      if (type === 'excel') {
+        // Simple Excel export for users
+        const data = users.map(user => ({
+          'Nome': user.name,
+          'Email': user.email,
+          'Função': user.role
+        }));
+
+        const worksheet = XLSX.utils.json_to_sheet(data);
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, 'Usuarios');
+        XLSX.writeFile(workbook, `usuarios_${timestamp}.xlsx`);
+      } else {
+        // Simple PDF for users
+        const pdf = new jsPDF();
+        const pageWidth = pdf.internal.pageSize.getWidth();
+        const margin = 15;
+        let yPosition = margin;
+
+        pdf.setFontSize(16);
+        pdf.text('Lista de Usuários', margin, yPosition);
+        yPosition += 15;
+
+        pdf.setFontSize(10);
+        pdf.text(`Gerado em: ${new Date().toLocaleDateString('pt-BR')}`, margin, yPosition);
+        yPosition += 10;
+
+        const tableData = users.map(user => [user.name, user.email, user.role]);
+
+        (pdf as any).autoTable({
+          head: [['Nome', 'Email', 'Função']],
+          body: tableData,
+          startY: yPosition,
+          margin: margin,
+          theme: 'grid',
+          styles: { font: 'helvetica', fontSize: 9 },
+          headStyles: { fillColor: [41, 128, 185], textColor: 255, fontStyle: 'bold' }
+        });
+
+        pdf.save(`usuarios_${timestamp}.pdf`);
+      }
+    } catch (error) {
+      console.error('Erro ao exportar usuários:', error);
+      alert('Erro ao exportar usuários');
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -271,9 +331,17 @@ export const Management: React.FC<ManagementProps> = ({
                             <h2 className="text-xl font-bold text-gray-800">Equipe</h2>
                             <p className="text-gray-500 text-sm">Gerencie o acesso ao sistema</p>
                         </div>
-                        <Button onClick={() => prepareCreate('user')} className="w-full md:w-auto bg-brand-mauve hover:bg-pink-900 shadow-md shadow-pink-100">
-                            <Plus size={18} className="mr-2"/> Novo Usuário
-                        </Button>
+                        <div className="flex gap-2 w-full md:w-auto">
+                            <Button onClick={() => handleExportUsers('excel')} variant="outline" className="flex-1 md:flex-none">
+                                <Download size={18} className="mr-2" /> Excel
+                            </Button>
+                            <Button onClick={() => handleExportUsers('pdf')} variant="outline" className="flex-1 md:flex-none">
+                                <FileText size={18} className="mr-2" /> PDF
+                            </Button>
+                            <Button onClick={() => prepareCreate('user')} className="flex-1 md:flex-none bg-brand-mauve hover:bg-pink-900 shadow-md shadow-pink-100">
+                                <Plus size={18} className="mr-2"/> Novo Usuário
+                            </Button>
+                        </div>
                     </div>
                     
                     <div className="overflow-hidden rounded-xl border border-gray-100">
