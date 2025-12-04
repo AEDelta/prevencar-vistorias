@@ -2,8 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { Inspection, PaymentMethod, Inspector, Indication, User } from '../types';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
-import { ArrowLeft, Save, ArrowRight, DollarSign, Send, CheckSquare, Square, Trash2 } from 'lucide-react';
+import { ArrowLeft, Save, ArrowRight, DollarSign, Send, CheckSquare, Square, Trash2, FileText, Download } from 'lucide-react';
 import { MOCK_INDICATIONS, MOCK_SERVICES } from './Management';
+import { exportInspectionDetailToPDF } from '../utils/exportUtils';
 
 interface InspectionFormProps {
   inspectionToEdit?: Inspection | null;
@@ -182,6 +183,17 @@ export const InspectionForm: React.FC<InspectionFormProps> = ({
 
   if (readOnly) {
       // Simple Read Only View
+      const handleExportDetail = async () => {
+        try {
+          if (formData && formData.id) {
+            await exportInspectionDetailToPDF(formData as Inspection);
+          }
+        } catch (error) {
+          console.error('Erro ao exportar:', error);
+          alert('Erro ao exportar PDF');
+        }
+      };
+
       return (
           <div className="bg-white rounded-xl shadow-lg p-6">
               <h2 className="text-2xl font-bold mb-4 text-brand-blue">Visualizar Ficha</h2>
@@ -195,7 +207,14 @@ export const InspectionForm: React.FC<InspectionFormProps> = ({
                   <div className="p-2 bg-gray-50 rounded"><strong>Status:</strong> {formData.status}</div>
                   <div className="p-2 bg-gray-50 rounded"><strong>Total:</strong> R$ {formData.totalValue?.toFixed(2)}</div>
               </div>
-              <Button onClick={onCancel} className="mt-6 w-full">Voltar</Button>
+              <div className="flex gap-3 mt-6">
+                <Button onClick={handleExportDetail} variant="outline" className="flex-1">
+                  <FileText size={18} className="mr-2" /> Exportar PDF
+                </Button>
+                <Button onClick={onCancel} className="flex-1">
+                  <ArrowLeft size={18} className="mr-2" /> Voltar
+                </Button>
+              </div>
           </div>
       );
   }

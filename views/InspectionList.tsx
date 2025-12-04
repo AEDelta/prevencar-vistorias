@@ -4,6 +4,7 @@ import { Button } from '../components/ui/Button';
 import { Edit2, Trash2, Search, Plus, Eye, FileText, Download, Filter, X } from 'lucide-react';
 import { InspectionForm } from './InspectionForm';
 import { MOCK_INDICATIONS, MOCK_SERVICES } from './Management';
+import { exportToExcel, exportToPDF } from '../utils/exportUtils';
 
 interface InspectionListProps {
   inspections: Inspection[];
@@ -71,8 +72,24 @@ export const InspectionList: React.FC<InspectionListProps> = ({ inspections, onE
   const totalPaid = filtered.filter(i => i.status === 'Concluída').reduce((acc, curr) => acc + (curr.totalValue || 0), 0);
   const totalPending = filtered.filter(i => i.status !== 'Concluída').reduce((acc, curr) => acc + (curr.totalValue || 0), 0);
 
-  const handleExport = (type: 'pdf' | 'excel') => {
-      alert(`Simulando exportação para ${type.toUpperCase()} com ${filtered.length} registros.`);
+  const handleExport = async (type: 'pdf' | 'excel') => {
+    try {
+      if (filtered.length === 0) {
+        alert('Nenhum registro para exportar');
+        return;
+      }
+
+      const timestamp = new Date().toISOString().split('T')[0];
+      
+      if (type === 'excel') {
+        exportToExcel(filtered, `vistorias_${timestamp}.xlsx`);
+      } else {
+        await exportToPDF(filtered, `vistorias_${timestamp}.pdf`);
+      }
+    } catch (error) {
+      console.error('Erro ao exportar:', error);
+      alert('Erro ao exportar. Verifique o console para mais detalhes.');
+    }
   };
 
   const clearFilters = () => {
