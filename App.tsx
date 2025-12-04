@@ -1,0 +1,270 @@
+import React, { useState, useEffect } from 'react';
+import { ViewState, Inspection, User, Role, Indication, ServiceItem } from './types';
+import { Layout } from './components/Layout';
+import { Login } from './views/Login';
+import { ForgotPassword } from './views/ForgotPassword';
+import { Home } from './views/Home';
+import { InspectionList } from './views/InspectionList';
+import { InspectionForm } from './views/InspectionForm';
+import { Management } from './views/Management';
+
+// --- MOCK DATA CONSTANTS ---
+const INITIAL_USERS: User[] = [
+    { id: '1', name: 'Admin Principal', email: 'admin@prevencar.com.br', role: 'admin' },
+    { id: '2', name: 'Cris Vistoriador', email: 'cris@prevencar.com.br', role: 'vistoriador' },
+    { id: '3', name: 'Pedro Vistoriador', email: 'pedro@prevencar.com.br', role: 'vistoriador' },
+    { id: '4', name: 'Joana Financeiro', email: 'financeiro@prevencar.com.br', role: 'financeiro' }
+];
+
+const INITIAL_INDICATIONS: Indication[] = [
+    { id: '1', name: 'Peças AutoSul', document: '12.345.678/0001-90', phone: '(11) 98888-7777', email: 'contato@autosul.com', cep: '01001-000', address: 'Rua Principal', number: '100' },
+    { id: '2', name: 'Mecânica Rápida', document: '98.765.432/0001-10', phone: '(11) 97777-6666', email: 'contato@mecanica.com', cep: '02002-000', address: 'Av Secundaria', number: '200' }
+];
+
+const INITIAL_SERVICES: ServiceItem[] = [
+    { id: '1', name: 'Laudo de Transferência', price: 100.00, description: 'Laudo obrigatório para transferência.' },
+    { id: '2', name: 'Laudo Cautelar', price: 250.00, description: 'Análise completa da estrutura.' },
+    { id: '3', name: 'Vistoria Prévia', price: 150.00, description: 'Para seguradoras.' },
+    { id: '4', name: 'Pesquisa', price: 50.00, description: 'Pesquisa de débitos e restrições.' },
+    { id: '5', name: 'Prevenscan', price: 300.00, description: 'Scanner completo.' }
+];
+
+const MOCK_INSPECTIONS: Inspection[] = [
+  {
+    id: '1',
+    date: '2023-10-25',
+    vehicleModel: 'Honda Civic',
+    licensePlate: 'ABC-1234',
+    selectedServices: ['Laudo Cautelar'],
+    client: {
+      name: 'João da Silva',
+      cpf: '123.456.789-00',
+      address: 'Rua das Flores',
+      cep: '01001-000',
+      number: '123'
+    },
+    status: 'Concluída',
+    inspector: 'Pedro',
+    paymentMethod: 'Pix',
+    totalValue: 250.00
+  },
+  {
+    id: '2',
+    date: '2023-10-26',
+    vehicleModel: 'Fiat Toro',
+    licensePlate: 'XYZ-9876',
+    selectedServices: ['Vistoria de Seguro'],
+    client: {
+      name: 'Maria Oliveira',
+      cpf: '987.654.321-99',
+      address: 'Av Paulista',
+      cep: '01311-000',
+      number: '900'
+    },
+    status: 'Pendente',
+    totalValue: 150.00
+  }
+] as any[]; 
+
+// --- HOOK FOR PERSISTENCE ---
+function useLocalStorage<T>(key: string, initialValue: T): [T, React.Dispatch<React.SetStateAction<T>>] {
+  const [storedValue, setStoredValue] = useState<T>(() => {
+    try {
+      const item = window.localStorage.getItem(key);
+      return item ? JSON.parse(item) : initialValue;
+    } catch (error) {
+      console.error(error);
+      return initialValue;
+    }
+  });
+
+  const setValue = (value: T | ((val: T) => T)) => {
+    try {
+      const valueToStore = value instanceof Function ? value(storedValue) : value;
+      setStoredValue(valueToStore);
+      window.localStorage.setItem(key, JSON.stringify(valueToStore));
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
+  return [storedValue, setValue];
+}
+
+const App: React.FC = () => {
+  const [currentView, setCurrentView] = useState<ViewState>(ViewState.LOGIN);
+  const [currentUser, setCurrentUser] = useState<User | undefined>(undefined);
+  
+  // Global State with Persistence
+  const [inspections, setInspections] = useLocalStorage<Inspection[]>('prevencar_inspections', MOCK_INSPECTIONS);
+  const [users, setUsers] = useLocalStorage<User[]>('prevencar_users', INITIAL_USERS);
+  const [indications, setIndications] = useLocalStorage<Indication[]>('prevencar_indications', INITIAL_INDICATIONS);
+  const [services, setServices] = useLocalStorage<ServiceItem[]>('prevencar_services', INITIAL_SERVICES);
+
+  const [editingInspection, setEditingInspection] = useState<Inspection | null>(null);
+
+  // Authentication Handlers
+  const handleLogin = (email: string) => {
+    // Simulated Role Assignment based on email
+    let role: Role = 'vistoriador';
+    let name = 'Vistoriador Técnico'; // Default
+
+    if (email.includes('admin')) {
+        role = 'admin';
+        name = 'Administrador do Sistema';
+    } else if (email.includes('financeiro')) {
+        role = 'financeiro';
+        name = 'Gestor Financeiro';
+    }
+
+    // Find if user exists in our DB (persisted or mock), otherwise create a session user
+    const existingUser = users.find(u => u.email === email);
+    
+    const user: User = existingUser || {
+        id: '99',
+        name: name,
+        email: email,
+        role: role
+    };
+
+    setCurrentUser(user);
+    setCurrentView(ViewState.HOME);
+  };
+
+  const handleLogout = () => {
+    setCurrentUser(undefined);
+    setCurrentView(ViewState.LOGIN);
+  };
+
+  // --- Inspection Logic ---
+  const handleStartNewInspection = () => {
+    setEditingInspection(null);
+    setCurrentView(ViewState.INSPECTION_FORM);
+  };
+
+  const handleEditInspection = (inspection: Inspection) => {
+    setEditingInspection(inspection);
+    setCurrentView(ViewState.INSPECTION_FORM);
+  };
+
+  const handleDeleteInspection = (id: string) => {
+    if (currentUser?.role === 'vistoriador') {
+        return; // Protection check
+    }
+    setInspections(prev => prev.filter(i => i.id !== id));
+  };
+
+  const handleSaveInspection = (inspection: Inspection) => {
+    if (editingInspection) {
+      setInspections(prev => prev.map(i => i.id === inspection.id ? inspection : i));
+    } else {
+      setInspections(prev => [inspection, ...prev]);
+    }
+    setCurrentView(ViewState.INSPECTION_LIST);
+  };
+
+  // --- Management Logic (Global Handlers) ---
+  
+  // Users
+  const handleSaveUser = (user: User) => {
+      if (users.find(u => u.id === user.id)) {
+          setUsers(users.map(u => u.id === user.id ? user : u));
+      } else {
+          setUsers([...users, { ...user, id: Math.random().toString(36).substr(2, 9) }]);
+      }
+  };
+  const handleDeleteUser = (id: string) => {
+      setUsers(prev => prev.filter(u => u.id !== id));
+  };
+
+  // Indications
+  const handleSaveIndication = (indication: Indication) => {
+      if (indications.find(i => i.id === indication.id)) {
+          setIndications(indications.map(i => i.id === indication.id ? indication : i));
+      } else {
+          setIndications([...indications, { ...indication, id: Math.random().toString(36).substr(2, 9) }]);
+      }
+  };
+  const handleDeleteIndication = (id: string) => {
+      setIndications(prev => prev.filter(i => i.id !== id));
+  };
+
+  // Services
+  const handleSaveService = (service: ServiceItem) => {
+      if (services.find(s => s.id === service.id)) {
+          setServices(services.map(s => s.id === service.id ? service : s));
+      } else {
+          setServices([...services, { ...service, id: Math.random().toString(36).substr(2, 9) }]);
+      }
+  };
+  const handleDeleteService = (id: string) => {
+      setServices(prev => prev.filter(s => s.id !== id));
+  };
+
+
+  // View Router
+  const renderView = () => {
+    switch (currentView) {
+      case ViewState.LOGIN:
+        return <Login onLogin={handleLogin} changeView={setCurrentView} />;
+      case ViewState.FORGOT_PASSWORD:
+        return <ForgotPassword changeView={setCurrentView} />;
+      case ViewState.HOME:
+        return (
+          <Layout currentView={currentView} changeView={setCurrentView} logout={handleLogout} currentUser={currentUser}>
+            <Home changeView={setCurrentView} startNewInspection={handleStartNewInspection} currentUser={currentUser} />
+          </Layout>
+        );
+      case ViewState.INSPECTION_LIST:
+        return (
+          <Layout currentView={currentView} changeView={setCurrentView} logout={handleLogout} currentUser={currentUser}>
+            <InspectionList 
+              inspections={inspections} 
+              onEdit={handleEditInspection}
+              onDelete={handleDeleteInspection}
+              changeView={setCurrentView}
+              onCreate={handleStartNewInspection}
+              currentUser={currentUser}
+            />
+          </Layout>
+        );
+      case ViewState.INSPECTION_FORM:
+        return (
+          <Layout currentView={currentView} changeView={setCurrentView} logout={handleLogout} currentUser={currentUser}>
+            <InspectionForm 
+              inspectionToEdit={editingInspection}
+              onSave={handleSaveInspection}
+              onCancel={() => setCurrentView(ViewState.INSPECTION_LIST)} 
+              onDelete={handleDeleteInspection}
+              currentUser={currentUser}
+            />
+          </Layout>
+        );
+      case ViewState.MANAGEMENT:
+        return (
+          <Layout currentView={currentView} changeView={setCurrentView} logout={handleLogout} currentUser={currentUser}>
+            <Management 
+                currentUser={currentUser}
+                // Pass Data
+                users={users}
+                indications={indications}
+                services={services}
+                // Pass Handlers
+                onSaveUser={handleSaveUser}
+                onDeleteUser={handleDeleteUser}
+                onSaveIndication={handleSaveIndication}
+                onDeleteIndication={handleDeleteIndication}
+                onSaveService={handleSaveService}
+                onDeleteService={handleDeleteService}
+            />
+          </Layout>
+        );
+      default:
+        return <Login onLogin={handleLogin} changeView={setCurrentView} />;
+    }
+  };
+
+  return <>{renderView()}</>;
+};
+
+export default App;
