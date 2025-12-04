@@ -3,11 +3,9 @@ import { ViewState } from '../types';
 import { ShieldCheck } from 'lucide-react';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
-import { auth } from '../firebase';
-import { signInWithEmailAndPassword } from 'firebase/auth';
 
 interface LoginProps {
-  onLogin: (email: string) => void;
+  onLogin: (email: string, password: string) => void;
   changeView: (view: ViewState) => void;
 }
 
@@ -18,21 +16,16 @@ export const Login: React.FC<LoginProps> = ({ onLogin, changeView }) => {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!email || !password) {
+      alert('Por favor, preencha email e senha.');
+      return;
+    }
     setLoading(true);
-    // Real Firebase authentication
-    signInWithEmailAndPassword(auth, email, password)
-      .then((userCredential) => {
-        setLoading(false);
-        const user = userCredential.user;
-        // Pass user email (or uid) back to app
-        onLogin(user.email ?? email);
-      })
-      .catch((error) => {
-        setLoading(false);
-        // Basic error handling — improve as needed
-        const message = error?.message || 'Erro ao autenticar';
-        alert(message);
-      });
+    // Simulated authentication for development
+    setTimeout(() => {
+      setLoading(false);
+      onLogin(email, password);
+    }, 1000); // Simulate loading delay
   };
 
   return (
@@ -88,11 +81,10 @@ export const Login: React.FC<LoginProps> = ({ onLogin, changeView }) => {
           </Button>
 
           <div className="text-xs text-center text-gray-400 mt-4 bg-gray-50 p-2 rounded">
-             <p>Simulação de perfis:</p>
-             <p>admin@... (Administrador)</p>
-             <p>financeiro@... (Financeiro)</p>
-             <p>qualquer@... (Vistoriador)</p>
-          </div>
+              <p>Conta de Admin:</p>
+              <p>Email: admin@prevencar.com.br</p>
+              <p>Senha: admin123</p>
+           </div>
         </form>
 
         <div className="mt-10 pt-6 border-t border-gray-100 text-center">

@@ -15,10 +15,7 @@ console.log('✅ App.tsx carregado');
 
 // --- MOCK DATA CONSTANTS ---
 const INITIAL_USERS: User[] = [
-    { id: '1', name: 'Admin Principal', email: 'admin@prevencar.com.br', role: 'admin' },
-    { id: '2', name: 'Cris Vistoriador', email: 'cris@prevencar.com.br', role: 'vistoriador' },
-    { id: '3', name: 'Pedro Vistoriador', email: 'pedro@prevencar.com.br', role: 'vistoriador' },
-    { id: '4', name: 'Joana Financeiro', email: 'financeiro@prevencar.com.br', role: 'financeiro' }
+    { id: '1', name: 'Admin Principal', email: 'admin@prevencar.com.br', role: 'admin', password: 'admin123' }
 ];
 
 const INITIAL_INDICATIONS: Indication[] = [
@@ -126,28 +123,13 @@ const App: React.FC = () => {
   }, []);
 
   // Authentication Handlers
-  const handleLogin = (email: string) => {
-    // Simulated Role Assignment based on email
-    let role: Role = 'vistoriador';
-    let name = 'Vistoriador Técnico'; // Default
-
-    if (email.includes('admin')) {
-        role = 'admin';
-        name = 'Administrador do Sistema';
-    } else if (email.includes('financeiro')) {
-        role = 'financeiro';
-        name = 'Gestor Financeiro';
+  const handleLogin = (email: string, password: string) => {
+    // Find user by email and validate password
+    const user = users.find(u => u.email === email);
+    if (!user || user.password !== password) {
+      alert('Email ou senha inválidos.');
+      return;
     }
-
-    // Find if user exists in our DB (persisted or mock), otherwise create a session user
-    const existingUser = users.find(u => u.email === email);
-    
-    const user: User = existingUser || {
-        id: '99',
-        name: name,
-        email: email,
-        role: role
-    };
 
     setCurrentUser(user);
     setCurrentView(ViewState.HOME);
