@@ -61,6 +61,7 @@ export interface Inspection {
   // Step 2 Data
   paymentMethod?: PaymentMethod;
   nfe?: string;
+  contact?: string; // Contact phone number
   totalValue: number;
 
   status: 'Pendente' | 'No Caixa' | 'Concluída';

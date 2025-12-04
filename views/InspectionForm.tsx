@@ -33,6 +33,14 @@ const maskCep = (value: string) => {
         .slice(0, 9);
 };
 
+const maskPhone = (value: string) => {
+    return value
+        .replace(/\D/g, '')
+        .replace(/^(\d{2})(\d)/g, '($1) $2')
+        .replace(/(\d)(\d{4})$/, '$1-$2')
+        .slice(0, 15);
+};
+
 export const InspectionForm: React.FC<InspectionFormProps> = ({ 
     inspectionToEdit, 
     onSave, 
@@ -454,6 +462,13 @@ export const InspectionForm: React.FC<InspectionFormProps> = ({
                             value={formData.nfe || ''}
                             onChange={e => handleChange('nfe', e.target.value)}
                             placeholder="Número da nota"
+                        />
+                        <Input
+                            label="Contato (Telefone/Celular)"
+                            value={formData.contact || ''}
+                            onChange={e => handleChange('contact', maskPhone(e.target.value))}
+                            placeholder="(00) 00000-0000"
+                            maxLength={15}
                         />
                     </div>
                 </div>
