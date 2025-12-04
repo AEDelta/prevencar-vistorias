@@ -7,15 +7,16 @@ import { MOCK_INDICATIONS, MOCK_SERVICES } from './Management';
 import { exportToExcel, exportToPDF } from '../utils/exportUtils';
 
 interface InspectionListProps {
-  inspections: Inspection[];
-  onEdit: (inspection: Inspection) => void;
-  onDelete: (id: string) => void;
-  changeView: (view: ViewState) => void;
-  onCreate: () => void;
-  currentUser?: User;
+   inspections: Inspection[];
+   onEdit: (inspection: Inspection) => void;
+   onDelete: (id: string) => void;
+   changeView: (view: ViewState) => void;
+   onCreate: () => void;
+   currentUser?: User;
+   onBulkUpdate: (ids: string[], newPayment: PaymentMethod) => void;
 }
 
-export const InspectionList: React.FC<InspectionListProps> = ({ inspections, onEdit, onDelete, onCreate, currentUser }) => {
+export const InspectionList: React.FC<InspectionListProps> = ({ inspections, onEdit, onDelete, onCreate, currentUser, onBulkUpdate }) => {
   const [searchTerm, setSearchTerm] = useState('');
   
   // Filters
@@ -32,6 +33,7 @@ export const InspectionList: React.FC<InspectionListProps> = ({ inspections, onE
   
   const [showFilters, setShowFilters] = useState(false);
   const [viewOnlyItem, setViewOnlyItem] = useState<Inspection | null>(null);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
   const filtered = inspections.filter(i => {
     // Text Search
@@ -258,6 +260,33 @@ export const InspectionList: React.FC<InspectionListProps> = ({ inspections, onE
                         </div>
                     </div>
                 )}
+
+                {/* Bulk Actions */}
+                {(currentUser?.role === 'admin' || currentUser?.role === 'financeiro') && selectedIds.length > 0 && (
+                    <div className="mt-4 p-4 bg-green-50 border border-green-100 rounded-xl flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
+                        <div className="text-sm text-green-700">
+                            <strong>{selectedIds.length}</strong> item(s) selecionado(s)
+                        </div>
+                        <div className="flex gap-2">
+                            <Button
+                                onClick={() => setSelectedIds(filtered.filter(i => i.paymentMethod === PaymentMethod.A_PAGAR).map(i => i.id))}
+                                variant="outline"
+                                className="border-green-200 text-green-700 hover:bg-green-100"
+                            >
+                                Selecionar Todos 'A Pagar'
+                            </Button>
+                            <Button
+                                onClick={() => {
+                                    onBulkUpdate(selectedIds, PaymentMethod.PAGOS);
+                                    setSelectedIds([]);
+                                }}
+                                className="bg-green-600 hover:bg-green-700"
+                            >
+                                Marcar como Pagos
+                            </Button>
+                        </div>
+                    </div>
+                )}
             </div>
 
             {/* Table */}
@@ -272,6 +301,7 @@ export const InspectionList: React.FC<InspectionListProps> = ({ inspections, onE
                             <th className="p-4">Pagamento</th>
                             <th className="p-4">Valor</th>
                             <th className="p-4">Status</th>
+                            <th className="p-4 text-center">Selecionar</th>
                             <th className="p-4 text-right">Ações</th>
                         </tr>
                     </thead>
@@ -298,8 +328,8 @@ export const InspectionList: React.FC<InspectionListProps> = ({ inspections, onE
                                 </td>
                                 <td className="p-4">
                                     <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold border ${
-                                        item.status === 'Concluída' 
-                                            ? 'bg-green-50 text-green-700 border-green-100' 
+                                        item.status === 'Concluída'
+                                            ? 'bg-green-50 text-green-700 border-green-100'
                                             : item.status === 'No Caixa'
                                             ? 'bg-orange-50 text-orange-700 border-orange-100'
                                             : 'bg-gray-100 text-gray-600 border-gray-200'
@@ -307,6 +337,22 @@ export const InspectionList: React.FC<InspectionListProps> = ({ inspections, onE
                                         <span className={`w-1.5 h-1.5 rounded-full mr-1.5 ${item.status === 'Concluída' ? 'bg-green-500' : item.status === 'No Caixa' ? 'bg-orange-500' : 'bg-gray-500'}`}></span>
                                         {item.status}
                                     </span>
+                                </td>
+                                <td className="p-4 text-center">
+                                    {(currentUser?.role === 'admin' || currentUser?.role === 'financeiro') && (
+                                        <input
+                                            type="checkbox"
+                                            checked={selectedIds.includes(item.id)}
+                                            onChange={(e) => {
+                                                if (e.target.checked) {
+                                                    setSelectedIds([...selectedIds, item.id]);
+                                                } else {
+                                                    setSelectedIds(selectedIds.filter(id => id !== item.id));
+                                                }
+                                            }}
+                                            className="w-4 h-4 text-brand-blue bg-gray-100 border-gray-300 rounded focus:ring-brand-blue focus:ring-2"
+                                        />
+                                    )}
                                 </td>
                                 <td className="p-4 text-right">
                                     <div className="flex justify-end space-x-2">
@@ -349,7 +395,7 @@ export const InspectionList: React.FC<InspectionListProps> = ({ inspections, onE
                             </tr>
                         )) : (
                             <tr>
-                                <td colSpan={8} className="p-12 text-center">
+                                <td colSpan={9} className="p-12 text-center">
                                     <div className="flex flex-col items-center justify-center text-gray-400">
                                         <Search size={48} className="mb-4 opacity-20" />
                                         <p className="text-lg font-medium text-gray-500">Nenhum resultado encontrado</p>

@@ -3,6 +3,13 @@ import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 
+// Extend jsPDF type for autoTable
+declare module 'jspdf' {
+  interface jsPDF {
+    autoTable: (options: any) => jsPDF;
+  }
+}
+
 const formatCurrency = (val: number) => {
   return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
 };
@@ -111,7 +118,7 @@ export const exportToPDF = async (
     const headers = ['Data', 'Placa', 'Modelo', 'Cliente', 'Pagamento', 'Status', 'Valor'];
 
     // Usar autoTable
-    (pdf as any).autoTable({
+    pdf.autoTable({
       head: [headers],
       body: tableData,
       startY: yPosition,

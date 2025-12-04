@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { TestPage } from './views/TestPage';
-import { ViewState, User, Indication, ServiceItem, Inspection, Role } from './types';
+import { ViewState, User, Indication, ServiceItem, Inspection, Role, PaymentMethod } from './types';
 import { collection, query, onSnapshot, orderBy, deleteDoc, doc, setDoc, addDoc } from 'firebase/firestore';
 import { db } from './firebase';
 import { Login } from './views/Login';
@@ -183,6 +183,24 @@ const App: React.FC = () => {
     setCurrentView(ViewState.INSPECTION_LIST);
   };
 
+  const handleBulkUpdatePayments = (ids: string[], newPayment: PaymentMethod) => {
+    const updatedInspections = inspections.map(inspection =>
+      ids.includes(inspection.id) ? { ...inspection, paymentMethod: newPayment } : inspection
+    );
+
+    if (useFirestore) {
+      // Update each doc in firestore
+      ids.forEach(id => {
+        const inspection = inspections.find(i => i.id === id);
+        if (inspection) {
+          setDoc(doc(db, 'inspections', id), { ...inspection, paymentMethod: newPayment }).catch(err => console.error('Erro ao atualizar no Firestore', err));
+        }
+      });
+    } else {
+      setInspections(updatedInspections);
+    }
+  };
+
   // --- Management Logic (Global Handlers) ---
   
   // Users
@@ -238,13 +256,14 @@ const App: React.FC = () => {
       case ViewState.INSPECTION_LIST:
         return (
           <Layout currentView={currentView} changeView={setCurrentView} logout={handleLogout} currentUser={currentUser}>
-            <InspectionList 
-              inspections={inspections} 
+            <InspectionList
+              inspections={inspections}
               onEdit={handleEditInspection}
               onDelete={handleDeleteInspection}
               changeView={setCurrentView}
               onCreate={handleStartNewInspection}
               currentUser={currentUser}
+              onBulkUpdate={handleBulkUpdatePayments}
             />
           </Layout>
         );

@@ -20,11 +20,12 @@ export enum ServiceType {
 }
 
 export enum PaymentMethod {
-  CREDITO = 'Crédito',
-  DEBITO = 'Débito',
-  DINHEIRO = 'Dinheiro',
-  PIX = 'Pix',
-  A_PAGAR = 'A Pagar'
+   CREDITO = 'Crédito',
+   DEBITO = 'Débito',
+   DINHEIRO = 'Dinheiro',
+   PIX = 'Pix',
+   A_PAGAR = 'A Pagar',
+   PAGOS = 'Pagos'
 }
 
 export enum Inspector {
