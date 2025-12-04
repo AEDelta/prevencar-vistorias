@@ -4,15 +4,30 @@ import { getFirestore } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 import { getAnalytics, isSupported as analyticsIsSupported } from 'firebase/analytics';
 
+// Tentar carregar do .env, com fallback para hardcoded (para teste)
 const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY as string,
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN as string,
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID as string,
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET as string,
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID as string,
-  appId: import.meta.env.VITE_FIREBASE_APP_ID as string,
-  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID as string,
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || 'AIzaSyDgqlX3xgIpEVIXl5ljw1913zlfUGFq800',
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || 'prevencar-vistorias-c0fe0.firebaseapp.com',
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || 'prevencar-vistorias-c0fe0',
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || 'prevencar-vistorias-c0fe0.firebasestorage.app',
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || '376692376652',
+  appId: import.meta.env.VITE_FIREBASE_APP_ID || '1:376692376652:web:479e6a381c9e289f5de0e9',
+  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID || 'G-6VHQB67F7K',
 };
+
+// Debug: Verificar se as variáveis foram carregadas
+if (!firebaseConfig.apiKey || !firebaseConfig.projectId) {
+  console.error('❌ Variáveis Firebase não carregadas!', {
+    apiKey: firebaseConfig.apiKey ? '✓' : '✗',
+    projectId: firebaseConfig.projectId ? '✓' : '✗',
+    authDomain: firebaseConfig.authDomain ? '✓' : '✗',
+  });
+} else {
+  console.log('✅ Firebase configurado com:', {
+    projectId: firebaseConfig.projectId,
+    authDomain: firebaseConfig.authDomain,
+  });
+}
 
 const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 

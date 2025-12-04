@@ -1,24 +1,17 @@
 import React, { useState, useEffect } from 'react';
-import { ViewState, Inspection, User, Role, Indication, ServiceItem } from './types';
+import { TestPage } from './views/TestPage';
+import { ViewState, User, Indication, ServiceItem, Inspection, Role } from './types';
+import { collection, query, onSnapshot, orderBy, deleteDoc, doc, setDoc, addDoc } from 'firebase/firestore';
 import { db } from './firebase';
-import {
-  collection,
-  onSnapshot,
-  addDoc,
-  setDoc,
-  doc,
-  deleteDoc,
-  query,
-  orderBy,
-  getDocs
-} from 'firebase/firestore';
-import { Layout } from './components/Layout';
 import { Login } from './views/Login';
 import { ForgotPassword } from './views/ForgotPassword';
+import { Layout } from './components/Layout';
 import { Home } from './views/Home';
 import { InspectionList } from './views/InspectionList';
 import { InspectionForm } from './views/InspectionForm';
 import { Management } from './views/Management';
+
+console.log('✅ App.tsx carregado');
 
 // --- MOCK DATA CONSTANTS ---
 const INITIAL_USERS: User[] = [
@@ -309,7 +302,11 @@ const App: React.FC = () => {
     }
   };
 
-  return <>{renderView()}</>;
+  return (
+    <>
+      {renderView()}
+    </>
+  );
 };
 
 export default App;
