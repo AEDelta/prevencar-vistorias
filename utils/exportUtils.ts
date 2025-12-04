@@ -25,6 +25,7 @@ export const exportToExcel = (inspections: Inspection[], filename: string = 'vis
       'CPF/CNPJ': inspection.client.cpf,
       'Endereço': inspection.client.address,
       'CEP': inspection.client.cep,
+      'Contato': inspection.contact || '-',
       'Serviços': inspection.selectedServices.join('; '),
       'Indicação': inspection.indicationName || '-',
       'Inspetor': inspection.inspector || '-',
@@ -48,6 +49,7 @@ export const exportToExcel = (inspections: Inspection[], filename: string = 'vis
       { wch: 18 }, // CPF/CNPJ
       { wch: 25 }, // Endereço
       { wch: 12 }, // CEP
+      { wch: 15 }, // Contato
       { wch: 30 }, // Serviços
       { wch: 20 }, // Indicação
       { wch: 15 }, // Inspetor
