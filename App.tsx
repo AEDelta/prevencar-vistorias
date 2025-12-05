@@ -191,10 +191,6 @@ const App: React.FC = () => {
   };
 
   const handleSaveInspection = (inspection: Inspection) => {
-    // Ensure paymentStatus exists and defaults sensibly
-    if (!inspection.paymentStatus) {
-      inspection.paymentStatus = inspection.paymentMethod === PaymentMethod.A_PAGAR ? 'Pendente' : 'Recebido';
-    }
     // Ensure mes_referencia exists: derive from date if missing
     if (!inspection.mes_referencia && inspection.date) {
       const d = new Date(inspection.date);
@@ -206,16 +202,13 @@ const App: React.FC = () => {
 
     // If attempting to change financial fields for a closed month, reject
     if (mes_fechado(inspection.mes_referencia || '')) {
-      // Do not allow saving any financial write operations
-      // We'll allow saving non-financial edits but reject changes that touch payment fields
-      // For simplicity, reject save if payment-related fields are present/changed
-      // (Client code should catch and show message)
       alert('O mês está fechado. Alterações financeiras não permitidas.');
       return;
     }
+    
     // Ensure paymentStatus exists and defaults sensibly
     if (!inspection.paymentStatus) {
-      inspection.paymentStatus = inspection.paymentMethod === PaymentMethod.A_PAGAR ? 'Pendente' : 'Recebido';
+      inspection.paymentStatus = inspection.paymentMethod === PaymentMethod.A_PAGAR ? 'A pagar' : 'Pago';
     }
     if (useFirestore) {
       const inspectionsCol = collection(db, 'inspections');
@@ -230,8 +223,8 @@ const App: React.FC = () => {
       if (editingInspection) {
         const prevIns = inspections.find(i => i.id === inspection.id);
         if (prevIns) {
-          const before = { paymentStatus: prevIns.paymentStatus, status_pagamento: prevIns.status_pagamento, forma_pagamento: prevIns.forma_pagamento, valor: prevIns.valor };
-          const after = { paymentStatus: inspection.paymentStatus, status_pagamento: inspection.status_pagamento, forma_pagamento: inspection.forma_pagamento, valor: inspection.valor };
+          const before = { paymentStatus: prevIns.paymentStatus, valor: prevIns.valor, data_pagamento: prevIns.data_pagamento };
+          const after = { paymentStatus: inspection.paymentStatus, valor: inspection.valor, data_pagamento: inspection.data_pagamento };
           if (JSON.stringify(before) !== JSON.stringify(after)) {
             addFinancialLog({ who: currentUser?.id || currentUser?.name, action: 'update_inspection', ficheId: inspection.id, before, after });
           }
@@ -239,7 +232,7 @@ const App: React.FC = () => {
         setInspections(prev => prev.map(i => i.id === inspection.id ? inspection : i));
       } else {
         setInspections(prev => [inspection, ...prev]);
-        addFinancialLog({ who: currentUser?.id || currentUser?.name, action: 'create_inspection', ficheId: inspection.id, after: { paymentStatus: inspection.paymentStatus, status_pagamento: inspection.status_pagamento, forma_pagamento: inspection.forma_pagamento, valor: inspection.valor } });
+        addFinancialLog({ who: currentUser?.id || currentUser?.name, action: 'create_inspection', ficheId: inspection.id, after: { paymentStatus: inspection.paymentStatus, valor: inspection.valor, data_pagamento: inspection.data_pagamento } });
       }
     }
     setCurrentView(ViewState.INSPECTION_LIST);
@@ -258,21 +251,26 @@ const App: React.FC = () => {
         return inspection;
       }
 
-      // If marking as 'Pago' (or 'Recebido'), ensure ficha completa
-      if (newPaymentStatus === 'Recebido' && inspection.status_ficha !== 'Completa') {
+      // Only allow marking as 'Pago' if paymentMethod is 'A Pagar'
+      if (newPaymentStatus === 'Pago' && inspection.paymentMethod !== PaymentMethod.A_PAGAR) {
+        errors.push(`A ficha ${inspection.id} não tem forma de pagamento "A Pagar", não pode ser marcada como paga.`);
+        return inspection;
+      }
+
+      // If marking as 'Pago', ensure ficha completa
+      if (newPaymentStatus === 'Pago' && inspection.status_ficha !== 'Completa') {
         errors.push(`A ficha ${inspection.id} deve estar completa para registrar pagamento.`);
         return inspection;
       }
 
-      const before = { paymentStatus: inspection.paymentStatus, status_pagamento: inspection.status_pagamento, forma_pagamento: inspection.forma_pagamento, valor: inspection.valor };
+      const before = { paymentStatus: inspection.paymentStatus, valor: inspection.valor, data_pagamento: inspection.data_pagamento };
       const updated = { ...inspection, paymentStatus: newPaymentStatus as any };
-      // If marking as received, set status_pagamento and data_pagamento
-      if (newPaymentStatus === 'Recebido') {
-        updated.status_pagamento = 'Pago';
+      // If marking as paid, set data_pagamento
+      if (newPaymentStatus === 'Pago') {
         updated.data_pagamento = new Date().toISOString();
       }
       // log
-      addFinancialLog({ who: currentUser?.id || currentUser?.name, action: 'bulk_update_payment_status', ficheId: inspection.id, before, after: { paymentStatus: updated.paymentStatus, status_pagamento: updated.status_pagamento } });
+      addFinancialLog({ who: currentUser?.id || currentUser?.name, action: 'bulk_update_payment_status', ficheId: inspection.id, before, after: { paymentStatus: updated.paymentStatus, data_pagamento: updated.data_pagamento } });
       return updated;
     });
 
@@ -303,7 +301,7 @@ const App: React.FC = () => {
 
     // Optional: check pendências (fichas com status_ficha != Completa or payments pending)
     if (options?.checkPendencias) {
-      const pend = inspections.filter(i => (i.mes_referencia === mes) && (i.status_ficha !== 'Completa' || (i.status_pagamento === 'A pagar' || (i.paymentStatus === 'Pendente'))));
+      const pend = inspections.filter(i => (i.mes_referencia === mes) && (i.status_ficha !== 'Completa' || (i.paymentStatus === 'A pagar')));
       if (pend.length > 0) {
         if (!window.confirm(`Existem ${pend.length} pendências. Deseja prosseguir com o fechamento?`)) return;
       }
@@ -336,11 +334,11 @@ const App: React.FC = () => {
 
       const value = typeof (i.valor ?? i.totalValue) === 'number' ? (i.valor ?? i.totalValue) : 0;
       const rec = byInd[indId];
-      rec.inspections.push({ id: i.id, client: i.client?.name, value, status_pagamento: i.status_pagamento, paymentStatus: i.paymentStatus, inspector: i.inspector });
+      rec.inspections.push({ id: i.id, client: i.client?.name, value, paymentStatus: i.paymentStatus, inspector: i.inspector });
       rec.totalCount += 1;
       rec.totalValue += value;
 
-      const needsPay = (i.status_pagamento === 'A pagar') || (i.paymentStatus === 'Pendente') || (i.paymentStatus === undefined && i.status_pagamento === 'A pagar');
+      const needsPay = (i.paymentStatus === 'A pagar');
       if (needsPay) {
         rec.toPayCount += 1;
         rec.toPayValue += value;

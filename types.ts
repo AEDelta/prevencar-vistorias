@@ -27,6 +27,12 @@ export enum PaymentMethod {
    A_PAGAR = 'A Pagar'
 }
 
+// Ficha workflow status: Iniciada (no caixa) or A Finalizar (concluída)
+export type InspectionStatus = 'Iniciada' | 'A Finalizar';
+
+// Payment status: a pagar or pago
+export type PaymentStatus = 'A pagar' | 'Pago';
+
 export enum Inspector {
   CRIS = 'Cris',
   PEDRO = 'Pedro',
@@ -63,18 +69,20 @@ export interface Inspection {
   nfe?: string;
   contact?: string; // Contact phone number
   totalValue: number;
-  status: 'Pendente' | 'No Caixa' | 'Concluída' | 'Pago';
-
-  // Payment status separate from inspection workflow status
-  paymentStatus?: 'Pendente' | 'Recebido' | 'Estornado';
-
-  // New requested fields for financial workflow
-  mes_referencia?: string; // 'YYYY-MM'
+  
+  // Ficha workflow status: 'Iniciada' (in progress/no caixa) or 'A Finalizar' (completed/concluída)
+  status: InspectionStatus;
+  
+  // Ficha completeness (all required fields filled)
   status_ficha?: 'Incompleta' | 'Completa';
-  status_pagamento?: 'A pagar' | 'Pago';
-  forma_pagamento?: string; // can duplicate paymentMethod or hold more detail
+  
+  // Financial: payment and date tracking
+  paymentStatus?: PaymentStatus; // 'A pagar' or 'Pago'
   data_pagamento?: string; // ISO date string when payment registered
-  valor?: number; // financial value (alias for totalValue or override)
+  
+  // Financial audit fields
+  mes_referencia?: string; // 'YYYY-MM' for monthly reconciliation
+  valor?: number; // explicit financial value (can override totalValue)
 }
 
 export interface FechamentoMensal {
@@ -82,6 +90,18 @@ export interface FechamentoMensal {
   fechado: boolean;
   data_fechamento?: string; // ISO date
   usuario_fechou?: string; // user id or name
+  report?: {
+    byIndication: Array<{
+      indicationId: string;
+      indicationName: string;
+      totalCount: number;
+      paidCount: number;
+      toPayCount: number;
+      paidValue: number;
+      toPayValue: number;
+      totalValue: number;
+    }>;
+  };
 }
 
 export interface User {

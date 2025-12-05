@@ -96,7 +96,7 @@ export const exportToExcel = (inspections: Inspection[], filename: string = 'vis
 };
 
 /**
- * Exporta inspeções para PDF (tabela simples)
+ * Exporta inspeções para PDF (tabela completa com resumo financeiro)
  */
 export const exportToPDF = async (
   inspections: Inspection[],
@@ -104,7 +104,7 @@ export const exportToPDF = async (
 ) => {
   try {
     const pdf = new jsPDF({
-      orientation: 'portrait',
+      orientation: 'landscape',
       unit: 'mm',
       format: 'a4'
     });
@@ -115,30 +115,61 @@ export const exportToPDF = async (
     let yPosition = margin;
 
     // Título
-    pdf.setFontSize(16);
-    pdf.text('Relatório de Vistorias', margin, yPosition);
-    yPosition += 10;
-
-    // Data de geração
-    pdf.setFontSize(10);
-    pdf.text(`Gerado em: ${new Date().toLocaleDateString('pt-BR')} às ${new Date().toLocaleTimeString('pt-BR')}`, margin, yPosition);
+    pdf.setFontSize(18);
+    pdf.setTextColor(41, 128, 185);
+    pdf.text('RELATÓRIO DE VISTORIAS', margin, yPosition);
     yPosition += 8;
 
-    // Tabela
+    // Data de geração
+    pdf.setFontSize(9);
+    pdf.setTextColor(100, 100, 100);
+    pdf.text(`Gerado em: ${new Date().toLocaleDateString('pt-BR')} às ${new Date().toLocaleTimeString('pt-BR')}`, margin, yPosition);
+    pdf.text(`Total de Fichas: ${inspections.length}`, pageWidth - margin - 50, yPosition);
+    yPosition += 10;
+
+    // Resumo Financeiro
+    const totalValue = inspections.reduce((acc, i) => acc + (i.totalValue || 0), 0);
+    const totalPago = inspections.filter(i => i.paymentStatus === 'Pago').reduce((acc, i) => acc + (i.totalValue || 0), 0);
+    const totalAPagar = inspections.filter(i => i.paymentStatus === 'A pagar').reduce((acc, i) => acc + (i.totalValue || 0), 0);
+
+    pdf.setFontSize(10);
+    pdf.setTextColor(0, 0, 0);
+    
+    // Box com resumo
+    pdf.setFillColor(240, 240, 240);
+    pdf.rect(margin, yPosition, pageWidth - 2 * margin, 16, 'F');
+    
+    pdf.setFontSize(9);
+    pdf.setTextColor(40, 40, 40);
+    const resumoX = margin + 5;
+    pdf.text(`RESUMO FINANCEIRO`, resumoX, yPosition + 4);
+    
+    pdf.setFontSize(8);
+    pdf.text(`Total: ${formatCurrency(totalValue)}`, resumoX, yPosition + 9);
+    pdf.setTextColor(0, 128, 0);
+    pdf.text(`Pago: ${formatCurrency(totalPago)}`, resumoX + 60, yPosition + 9);
+    pdf.setTextColor(255, 102, 0);
+    pdf.text(`A Pagar: ${formatCurrency(totalAPagar)}`, resumoX + 110, yPosition + 9);
+    
+    yPosition += 20;
+
+    // Tabela detalhada
     const tableData = inspections.map(inspection => [
       formatDate(inspection.date),
       inspection.licensePlate,
-      inspection.vehicleModel.substring(0, 15),
-      inspection.client.name.substring(0, 15),
+      inspection.vehicleModel.substring(0, 12),
+      inspection.client.name.substring(0, 12),
+      inspection.inspector || '-',
       inspection.paymentMethod || '-',
+      inspection.paymentStatus || '-',
       inspection.status,
       formatCurrency(inspection.totalValue)
     ]);
 
-    const headers = ['Data', 'Placa', 'Modelo', 'Cliente', 'Pagamento', 'Status', 'Valor'];
+    const headers = ['Data', 'Placa', 'Modelo', 'Cliente', 'Inspetor', 'Forma Pagto', 'Situação', 'Status', 'Valor'];
 
     // Usar autoTable
-    pdf.autoTable({
+    (pdf as any).autoTable({
       head: [headers],
       body: tableData,
       startY: yPosition,
@@ -146,21 +177,167 @@ export const exportToPDF = async (
       theme: 'grid',
       styles: {
         font: 'helvetica',
-        fontSize: 9,
-        halign: 'center'
+        fontSize: 8,
+        halign: 'center',
+        valign: 'middle',
+        cellPadding: 2
       },
       headStyles: {
         fillColor: [41, 128, 185],
         textColor: 255,
-        fontStyle: 'bold'
+        fontStyle: 'bold',
+        fontSize: 8
+      },
+      alternateRowStyles: {
+        fillColor: [245, 245, 245]
+      },
+      columnStyles: {
+        0: { halign: 'center' },
+        1: { halign: 'center', fontStyle: 'bold' },
+        8: { halign: 'right', fontStyle: 'bold' }
+      },
+      bodyStyles: {
+        fontSize: 7
       }
     });
 
-    // Fazer download
     pdf.save(filename);
   } catch (error) {
     console.error('Erro ao exportar para PDF:', error);
     throw new Error('Falha ao exportar para PDF');
+  }
+};
+
+/**
+ * Exporta relatório de fechamento mensal agrupado por indicação
+ */
+export const exportMonthlyClosurePDF = async (
+  mes: string,
+  byIndication: any[],
+  filename: string = `fechamento_${mes}.pdf`
+) => {
+  try {
+    const pdf = new jsPDF({
+      orientation: 'landscape',
+      unit: 'mm',
+      format: 'a4'
+    });
+
+    const pageWidth = pdf.internal.pageSize.getWidth();
+    const margin = 10;
+    let yPosition = margin;
+
+    // Título
+    pdf.setFontSize(18);
+    pdf.setTextColor(41, 128, 185);
+    pdf.text(`FECHAMENTO MENSAL - ${mes}`, margin, yPosition);
+    yPosition += 8;
+
+    // Data de geração
+    pdf.setFontSize(9);
+    pdf.setTextColor(100, 100, 100);
+    pdf.text(`Gerado em: ${new Date().toLocaleDateString('pt-BR')} às ${new Date().toLocaleTimeString('pt-BR')}`, margin, yPosition);
+    yPosition += 10;
+
+    // Resumo geral
+    const totalGeral = byIndication.reduce((acc, ind) => acc + ind.totalValue, 0);
+    const totalRecebido = byIndication.reduce((acc, ind) => acc + ind.paidValue, 0);
+    const totalAPagar = byIndication.reduce((acc, ind) => acc + ind.toPayValue, 0);
+
+    pdf.setFontSize(10);
+    pdf.setTextColor(0, 0, 0);
+    pdf.setFillColor(240, 240, 240);
+    pdf.rect(margin, yPosition, pageWidth - 2 * margin, 14, 'F');
+    
+    pdf.setFontSize(9);
+    pdf.text(`RESUMO GERAL DO MÊS`, margin + 5, yPosition + 4);
+    
+    pdf.setFontSize(8);
+    pdf.text(`Total: ${formatCurrency(totalGeral)}`, margin + 5, yPosition + 9);
+    pdf.setTextColor(0, 128, 0);
+    pdf.text(`Recebido: ${formatCurrency(totalRecebido)}`, margin + 60, yPosition + 9);
+    pdf.setTextColor(255, 102, 0);
+    pdf.text(`A Receber: ${formatCurrency(totalAPagar)}`, margin + 120, yPosition + 9);
+    
+    yPosition += 18;
+
+    // Tabela por indicação
+    byIndication.forEach((indication, index) => {
+      pdf.setTextColor(41, 128, 185);
+      pdf.setFontSize(10);
+      pdf.setFont('helvetica', 'bold');
+      pdf.text(`${index + 1}. ${indication.indicationName || 'Sem Indicação'}`, margin, yPosition);
+      yPosition += 6;
+
+      pdf.setFontSize(8);
+      pdf.setTextColor(0, 0, 0);
+      pdf.setFont('helvetica', 'normal');
+      
+      const tableData = indication.inspections.map((insp: any) => [
+        insp.client || '-',
+        formatCurrency(insp.value),
+        insp.status_pagamento || insp.paymentStatus || '-'
+      ]);
+
+      tableData.push([
+        'SUBTOTAL',
+        formatCurrency(indication.totalValue),
+        ''
+      ]);
+
+      (pdf as any).autoTable({
+        head: [['Cliente', 'Valor', 'Situação']],
+        body: tableData,
+        startY: yPosition,
+        margin: margin,
+        theme: 'grid',
+        styles: {
+          font: 'helvetica',
+          fontSize: 7,
+          cellPadding: 1.5
+        },
+        headStyles: {
+          fillColor: [200, 220, 240],
+          textColor: 41,
+          fontStyle: 'bold',
+          fontSize: 7
+        },
+        columnStyles: {
+          1: { halign: 'right' },
+          2: { halign: 'center' }
+        },
+        bodyStyles: {
+          fontSize: 7
+        },
+        didDrawPage: function() {
+          // Footer
+          const pageCount = (pdf as any).internal.getNumberOfPages();
+          const pageSize = pdf.internal.getPageSize();
+          const pageHeight = pageSize.getHeight();
+          const pageWidth = pageSize.getWidth();
+          pdf.setFontSize(7);
+          pdf.text(
+            `Página ${pageCount}`,
+            pageWidth / 2,
+            pageHeight - 5,
+            { align: 'center' }
+          );
+        }
+      });
+
+      yPosition = (pdf as any).lastAutoTable.finalY + 8;
+
+      // Verificar se precisa de nova página
+      if (yPosition > pageSize.getHeight() - 40) {
+        pdf.addPage();
+        yPosition = margin;
+      }
+    });
+
+    pdf.save(filename);
+  } catch (error) {
+    console.error('Erro ao exportar fechamento mensal para PDF:', error);
+    throw new Error('Falha ao exportar fechamento mensal para PDF');
   }
 };
 
@@ -230,7 +407,9 @@ export const exportInspectionDetailToPDF = async (
     yPosition += 5;
     pdf.text(`Forma de Pagamento: ${inspection.paymentMethod || '-'}`, margin, yPosition);
     yPosition += 5;
-    pdf.text(`Status: ${inspection.status}`, margin, yPosition);
+    pdf.text(`Status do Pagamento: ${inspection.paymentStatus || '-'}`, margin, yPosition);
+    yPosition += 5;
+    pdf.text(`Status da Ficha: ${inspection.status}`, margin, yPosition);
     yPosition += 5;
     if (inspection.nfe) {
       pdf.text(`NFe: ${inspection.nfe}`, margin, yPosition);

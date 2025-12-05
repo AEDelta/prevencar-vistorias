@@ -1,5 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Inspection, PaymentMethod, Inspector, Indication, User } from '../types';
+import { Inspection, PaymentMethod, Inspector, Indication, User, PaymentStatus } from '../types';
+// Função utilitária para calcular situação do pagamento
+function getPaymentStatus(paymentMethod: PaymentMethod | string): PaymentStatus {
+    return paymentMethod === PaymentMethod.A_PAGAR ? 'A pagar' : 'Pago';
+}
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { ArrowLeft, Save, ArrowRight, DollarSign, Send, CheckSquare, Square, Trash2, FileText, Download } from 'lucide-react';
@@ -65,7 +69,7 @@ export const InspectionForm: React.FC<InspectionFormProps> = ({
   const [isLoadingCep, setIsLoadingCep] = useState(false);
   const [formData, setFormData] = useState<Partial<Inspection>>({
     date: new Date().toISOString().split('T')[0],
-    status: 'Pendente',
+    status: 'Iniciada',
     selectedServices: [],
     client: {
         name: '',
@@ -183,7 +187,8 @@ export const InspectionForm: React.FC<InspectionFormProps> = ({
           ...formData,
           id: formData.id || Math.random().toString(36).substr(2, 9),
           totalValue: calculateTotal(),
-          status: 'No Caixa'
+          status: 'A Finalizar',
+          paymentStatus: getPaymentStatus(formData.paymentMethod)
       } as Inspection);
   };
 
@@ -214,15 +219,16 @@ export const InspectionForm: React.FC<InspectionFormProps> = ({
       return errs;
   };
 
-  const handleFinalSave = (e: React.FormEvent) => {
-      e.preventDefault();
-      onSave({
-        ...formData,
-        id: formData.id || Math.random().toString(36).substr(2, 9),
-        totalValue: calculateTotal(),
-        status: 'Concluída'
-      } as Inspection);
-  };
+    const handleFinalSave = (e: React.FormEvent) => {
+            e.preventDefault();
+            onSave({
+                ...formData,
+                id: formData.id || Math.random().toString(36).substr(2, 9),
+                totalValue: calculateTotal(),
+                status: 'A Finalizar',
+                paymentStatus: getPaymentStatus(formData.paymentMethod)
+            } as Inspection);
+    };
   
   const handleDeleteClick = () => {
       if (onDelete && formData.id) {
@@ -235,43 +241,44 @@ export const InspectionForm: React.FC<InspectionFormProps> = ({
 
   const canDelete = currentUser?.role === 'admin' || currentUser?.role === 'financeiro';
 
-  if (readOnly) {
-      // Simple Read Only View
-      const handleExportDetail = async () => {
-        try {
-          if (formData && formData.id) {
-            await exportInspectionDetailToPDF(formData as Inspection);
-          }
-        } catch (error) {
-          console.error('Erro ao exportar:', error);
-          alert('Erro ao exportar PDF');
-        }
-      };
+    if (readOnly) {
+            // Simple Read Only View
+            const handleExportDetail = async () => {
+                try {
+                    if (formData && formData.id) {
+                        await exportInspectionDetailToPDF(formData as Inspection);
+                    }
+                } catch (error) {
+                    console.error('Erro ao exportar:', error);
+                    alert('Erro ao exportar PDF');
+                }
+            };
 
-      return (
-          <div className="bg-white rounded-xl shadow-lg p-6">
-              <h2 className="text-2xl font-bold mb-4 text-brand-blue">Visualizar Ficha</h2>
-              <div className="grid grid-cols-2 gap-4 text-sm">
-                  <div className="p-2 bg-gray-50 rounded"><strong>Placa:</strong> {formData.licensePlate}</div>
-                  <div className="p-2 bg-gray-50 rounded"><strong>Modelo:</strong> {formData.vehicleModel}</div>
-                  <div className="p-2 bg-gray-50 rounded"><strong>Cliente:</strong> {formData.client?.name}</div>
-                  <div className="p-2 bg-gray-50 rounded"><strong>CPF/CNPJ:</strong> {maskCpfCnpj(formData.client?.cpf || '')}</div>
-                  <div className="p-2 bg-gray-50 rounded col-span-2"><strong>Serviços:</strong> {formData.selectedServices?.join(', ')}</div>
-                  <div className="p-2 bg-gray-50 rounded col-span-2"><strong>Observações:</strong> {formData.observations || '-'}</div>
-                  <div className="p-2 bg-gray-50 rounded"><strong>Status:</strong> {formData.status}</div>
-                  <div className="p-2 bg-gray-50 rounded"><strong>Total:</strong> R$ {formData.totalValue?.toFixed(2)}</div>
-              </div>
-              <div className="flex gap-3 mt-6">
-                <Button onClick={handleExportDetail} variant="outline" className="flex-1">
-                  <FileText size={18} className="mr-2" /> Exportar PDF
-                </Button>
-                <Button onClick={onCancel} className="flex-1">
-                  <ArrowLeft size={18} className="mr-2" /> Voltar
-                </Button>
-              </div>
-          </div>
-      );
-  }
+            return (
+                    <div className="bg-white rounded-xl shadow-lg p-6">
+                            <h2 className="text-2xl font-bold mb-4 text-brand-blue">Visualizar Ficha</h2>
+                            <div className="grid grid-cols-2 gap-4 text-sm">
+                                    <div className="p-2 bg-gray-50 rounded"><strong>Placa:</strong> {formData.licensePlate}</div>
+                                    <div className="p-2 bg-gray-50 rounded"><strong>Modelo:</strong> {formData.vehicleModel}</div>
+                                    <div className="p-2 bg-gray-50 rounded"><strong>Cliente:</strong> {formData.client?.name}</div>
+                                    <div className="p-2 bg-gray-50 rounded"><strong>CPF/CNPJ:</strong> {maskCpfCnpj(formData.client?.cpf || '')}</div>
+                                    <div className="p-2 bg-gray-50 rounded col-span-2"><strong>Serviços:</strong> {formData.selectedServices?.join(', ')}</div>
+                                    <div className="p-2 bg-gray-50 rounded col-span-2"><strong>Observações:</strong> {formData.observations || '-'}</div>
+                                    <div className="p-2 bg-gray-50 rounded"><strong>Status:</strong> {formData.status}</div>
+                                    <div className="p-2 bg-gray-50 rounded"><strong>Total:</strong> R$ {formData.totalValue?.toFixed(2)}</div>
+                                    <div className="p-2 bg-gray-50 rounded"><strong>Situação do Pagamento:</strong> {getPaymentStatus(formData.paymentMethod)}</div>
+                            </div>
+                            <div className="flex gap-3 mt-6">
+                                <Button onClick={handleExportDetail} variant="outline" className="flex-1">
+                                    <FileText size={18} className="mr-2" /> Exportar PDF
+                                </Button>
+                                <Button onClick={onCancel} className="flex-1">
+                                    <ArrowLeft size={18} className="mr-2" /> Voltar
+                                </Button>
+                            </div>
+                    </div>
+            );
+    }
 
   return (
     <div className="bg-white rounded-xl shadow-lg overflow-hidden">
@@ -503,6 +510,9 @@ export const InspectionForm: React.FC<InspectionFormProps> = ({
                                 <option key={pm} value={pm}>{pm}</option>
                                 ))}
                             </select>
+                            <div className="mt-2 text-xs text-gray-600">
+                              <strong>Situação do Pagamento:</strong> {getPaymentStatus(formData.paymentMethod)}
+                            </div>
                         </div>
 
                         <Input

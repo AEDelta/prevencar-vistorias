@@ -1,5 +1,9 @@
 import React, { useState } from 'react';
-import { Inspection, ViewState, User, PaymentMethod } from '../types';
+import { Inspection, ViewState, User, PaymentMethod, PaymentStatus } from '../types';
+// Função utilitária para calcular situação do pagamento
+function getPaymentStatus(paymentMethod: PaymentMethod | string): PaymentStatus {
+    return paymentMethod === PaymentMethod.A_PAGAR ? 'A pagar' : 'Pago';
+}
 import { Button } from '../components/ui/Button';
 import { Edit2, Trash2, Search, Plus, Eye, FileText, Download, Filter, X } from 'lucide-react';
 import { InspectionForm } from './InspectionForm';
@@ -22,13 +26,13 @@ export const InspectionList: React.FC<InspectionListProps> = ({ inspections, onE
   const [searchTerm, setSearchTerm] = useState('');
   
   // Filters
-  const [filterStatus, setFilterStatus] = useState<'Todos' | 'Pendente' | 'No Caixa' | 'Concluída' | 'Pago'>('Todos');
+  const [filterStatus, setFilterStatus] = useState<'Todos' | 'Iniciada' | 'A Finalizar'>('Todos');
   const [dateStart, setDateStart] = useState('');
   const [dateEnd, setDateEnd] = useState('');
   const [filterIndication, setFilterIndication] = useState('');
   const [filterService, setFilterService] = useState('');
   const [filterPayment, setFilterPayment] = useState('');
-    const [filterPaymentStatus, setFilterPaymentStatus] = useState<'All' | 'Pendente' | 'Recebido' | 'Estornado'>('All');
+    const [filterPaymentStatus, setFilterPaymentStatus] = useState<'All' | 'A pagar' | 'Pago'>('All');
   
   // Value Range
   const [minValue, setMinValue] = useState('');
@@ -64,7 +68,7 @@ export const InspectionList: React.FC<InspectionListProps> = ({ inspections, onE
     const matchesPayment = !filterPayment || i.paymentMethod === filterPayment;
 
     // Payment Status Filter
-    const matchesPaymentStatus = filterPaymentStatus === 'All' || (i.paymentStatus || 'Pendente') === filterPaymentStatus;
+    const matchesPaymentStatus = filterPaymentStatus === 'All' || getPaymentStatus(i.paymentMethod) === filterPaymentStatus;
 
     // Value Range
     const val = i.totalValue || 0;
@@ -77,13 +81,13 @@ export const InspectionList: React.FC<InspectionListProps> = ({ inspections, onE
 
   // Totals Calculation
   const totalValue = filtered.reduce((acc, curr) => acc + (curr.totalValue || 0), 0);
-  const totalPaid = filtered.filter(i => i.status === 'Concluída' || i.status === 'Pago').reduce((acc, curr) => acc + (curr.totalValue || 0), 0);
-  const totalPending = filtered.filter(i => i.status !== 'Concluída' && i.status !== 'Pago').reduce((acc, curr) => acc + (curr.totalValue || 0), 0);
+    const totalPaid = filtered.filter(i => getPaymentStatus(i.paymentMethod) === 'Pago').reduce((acc, curr) => acc + (curr.totalValue || 0), 0);
+    const totalPending = filtered.filter(i => getPaymentStatus(i.paymentMethod) === 'A pagar').reduce((acc, curr) => acc + (curr.totalValue || 0), 0);
 
   // Counts
   const totalCount = filtered.length;
-  const completedCount = filtered.filter(i => i.status === 'Concluída' || i.status === 'Pago').length;
-  const pendingCount = filtered.filter(i => i.status !== 'Concluída' && i.status !== 'Pago').length;
+  const completedCount = filtered.filter(i => i.status === 'A Finalizar').length;
+  const pendingCount = filtered.filter(i => i.status === 'Iniciada').length;
 
   const handleExport = async (type: 'pdf' | 'excel') => {
     try {
@@ -236,10 +240,8 @@ export const InspectionList: React.FC<InspectionListProps> = ({ inspections, onE
                             <label className="text-xs font-bold text-gray-500">Status</label>
                             <select className="w-full px-3 py-2 border rounded-lg text-sm" value={filterStatus} onChange={(e: any) => setFilterStatus(e.target.value)}>
                                 <option value="Todos">Todos</option>
-                                <option value="Pendente">Pendente</option>
-                                <option value="No Caixa">No Caixa</option>
-                                <option value="Concluída">Concluída</option>
-                                <option value="Pago">Pago</option>
+                                <option value="Iniciada">Iniciada</option>
+                                <option value="A Finalizar">A Finalizar</option>
                             </select>
                         </div>
                         
@@ -275,9 +277,8 @@ export const InspectionList: React.FC<InspectionListProps> = ({ inspections, onE
                                       <label className="text-xs font-bold text-gray-500">Status do Pagamento</label>
                                       <select className="w-full px-3 py-2 border rounded-lg text-sm" value={filterPaymentStatus} onChange={(e) => setFilterPaymentStatus(e.target.value as any)}>
                                           <option value="All">Todos</option>
-                                          <option value="Pendente">Pendente</option>
-                                          <option value="Recebido">Recebido</option>
-                                          <option value="Estornado">Estornado</option>
+                                          <option value="A pagar">A pagar</option>
+                                          <option value="Pago">Pago</option>
                                       </select>
                                 </div>
 
@@ -306,7 +307,7 @@ export const InspectionList: React.FC<InspectionListProps> = ({ inspections, onE
                         </div>
                         <div className="flex gap-2">
                             <Button
-                                onClick={() => setSelectedIds(filtered.filter(i => i.paymentMethod === PaymentMethod.A_PAGAR && (i.paymentStatus || 'Pendente') !== 'Recebido').map(i => i.id))}
+                                onClick={() => setSelectedIds(filtered.filter(i => i.paymentMethod === PaymentMethod.A_PAGAR && (i.paymentStatus || 'A pagar') !== 'Pago').map(i => i.id))}
                                 variant="outline"
                                 className="border-green-200 text-green-700 hover:bg-green-100"
                             >
@@ -322,7 +323,18 @@ export const InspectionList: React.FC<InspectionListProps> = ({ inspections, onE
                                         alert('Nenhum item selecionado');
                                         return;
                                     }
-                                    if (!window.confirm(`Deseja marcar ${selectedIds.length} pagamento(s) como Recebido?`)) return;
+                                    
+                                    // Validate: all selected items must have paymentMethod === 'A Pagar'
+                                    const withoutAPagar = selectedIds.filter(id => {
+                                        const item = inspections.find(i => i.id === id);
+                                        return item && item.paymentMethod !== PaymentMethod.A_PAGAR;
+                                    });
+                                    if (withoutAPagar.length > 0) {
+                                        alert(`${withoutAPagar.length} ficha(s) selecionada(s) não tem forma de pagamento "A Pagar". Apenas fichas com "A Pagar" podem ser marcadas como pagas.`);
+                                        return;
+                                    }
+                                    
+                                    if (!window.confirm(`Deseja marcar ${selectedIds.length} pagamento(s) como Pago?`)) return;
                                     // quick front-end check for month closure
                                     const closed = (idList: string[]) => idList.some(id => {
                                         const it = inspections.find(x => x.id === id);
@@ -332,12 +344,12 @@ export const InspectionList: React.FC<InspectionListProps> = ({ inspections, onE
                                         return !!(f && f.fechado);
                                     });
                                     if (closed(selectedIds)) { alert('Algum mês está fechado. Operação cancelada.'); return; }
-                                    onBulkPaymentUpdate(selectedIds, 'Recebido');
+                                    onBulkPaymentUpdate(selectedIds, 'Pago');
                                     setSelectedIds([]);
                                 }}
                                 className="bg-amber-500 hover:bg-amber-600 text-white"
                             >
-                                Marcar Pagamentos como Recebidos
+                                Marcar Pagamentos como Pagos
                             </Button>
                             <Button
                                 onClick={handleExportSelectedPDF}
@@ -418,20 +430,18 @@ export const InspectionList: React.FC<InspectionListProps> = ({ inspections, onE
                                 </td>
                                 <td className="p-4">
                                     <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${
-                                        (item.paymentStatus === 'Recebido') ? 'bg-green-50 text-green-700 border-green-100' : (item.paymentStatus === 'Estornado') ? 'bg-red-50 text-red-700 border-red-100' : 'bg-gray-100 text-gray-600 border-gray-200'
+                                        (getPaymentStatus(item.paymentMethod) === 'Pago') ? 'bg-green-50 text-green-700 border-green-100' : 'bg-gray-100 text-gray-600 border-gray-200'
                                     }`}>
-                                        {(item.paymentStatus || 'Pendente')}
+                                        {getPaymentStatus(item.paymentMethod)}
                                     </span>
                                 </td>
                                 <td className="p-4">
                                     <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold border ${
-                                        item.status === 'Concluída' || item.status === 'Pago'
+                                        item.status === 'A Finalizar'
                                             ? 'bg-green-50 text-green-700 border-green-100'
-                                            : item.status === 'No Caixa'
-                                            ? 'bg-orange-50 text-orange-700 border-orange-100'
                                             : 'bg-gray-100 text-gray-600 border-gray-200'
                                     }`}>
-                                        <span className={`w-1.5 h-1.5 rounded-full mr-1.5 ${item.status === 'Concluída' || item.status === 'Pago' ? 'bg-green-500' : item.status === 'No Caixa' ? 'bg-orange-500' : 'bg-gray-500'}`}></span>
+                                        <span className={`w-1.5 h-1.5 rounded-full mr-1.5 ${item.status === 'A Finalizar' ? 'bg-green-500' : 'bg-gray-500'}`}></span>
                                         {item.status}
                                     </span>
                                 </td>
@@ -440,6 +450,8 @@ export const InspectionList: React.FC<InspectionListProps> = ({ inspections, onE
                                         <input
                                             type="checkbox"
                                             checked={selectedIds.includes(item.id)}
+                                            disabled={item.paymentMethod !== PaymentMethod.A_PAGAR}
+                                            title={item.paymentMethod !== PaymentMethod.A_PAGAR ? 'Apenas fichas com forma de pagamento "A Pagar" podem ser marcadas como pagas' : ''}
                                             onChange={(e) => {
                                                 if (e.target.checked) {
                                                     setSelectedIds([...selectedIds, item.id]);
@@ -447,7 +459,7 @@ export const InspectionList: React.FC<InspectionListProps> = ({ inspections, onE
                                                     setSelectedIds(selectedIds.filter(id => id !== item.id));
                                                 }
                                             }}
-                                            className="w-4 h-4 text-brand-blue bg-gray-100 border-gray-300 rounded focus:ring-brand-blue focus:ring-2"
+                                            className="w-4 h-4 text-brand-blue bg-gray-100 border-gray-300 rounded focus:ring-brand-blue focus:ring-2 disabled:opacity-50 disabled:cursor-not-allowed"
                                         />
                                     )}
                                 </td>
