@@ -311,9 +311,8 @@ export const exportMonthlyClosurePDF = async (
         didDrawPage: function() {
           // Footer
           const pageCount = (pdf as any).internal.getNumberOfPages();
-          const pageSize = pdf.internal.getPageSize();
-          const pageHeight = pageSize.getHeight();
-          const pageWidth = pageSize.getWidth();
+          const pageHeight = pdf.internal.pageSize.getHeight();
+          const pageWidth = pdf.internal.pageSize.getWidth();
           pdf.setFontSize(7);
           pdf.text(
             `Página ${pageCount}`,
@@ -327,7 +326,7 @@ export const exportMonthlyClosurePDF = async (
       yPosition = (pdf as any).lastAutoTable.finalY + 8;
 
       // Verificar se precisa de nova página
-      if (yPosition > pageSize.getHeight() - 40) {
+      if (yPosition > pdf.internal.pageSize.getHeight() - 40) {
         pdf.addPage();
         yPosition = margin;
       }
