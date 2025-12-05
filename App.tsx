@@ -309,30 +309,82 @@ const App: React.FC = () => {
       }
     }
 
-    // Mark fechamento
+    // Mark fechamento and build a per-indication financial report
     const updated = [...fechamentosMensais];
     const idx = updated.findIndex(f => f.mes === mes);
     const now = new Date().toISOString();
+
+    // Build report grouped by indicação
+    const items = inspections.filter(i => i.mes_referencia === mes);
+    const byInd: { [key: string]: any } = {};
+    items.forEach(i => {
+      const indId = i.indicationId || '__SEM_INDICACAO__';
+      const indName = i.indicationName || 'Sem Indicação';
+      if (!byInd[indId]) {
+        byInd[indId] = {
+          indicationId: indId === '__SEM_INDICACAO__' ? null : indId,
+          indicationName: indName,
+          inspections: [] as any[],
+          totalCount: 0,
+          totalValue: 0,
+          toPayCount: 0,
+          toPayValue: 0,
+          paidCount: 0,
+          paidValue: 0
+        };
+      }
+
+      const value = typeof (i.valor ?? i.totalValue) === 'number' ? (i.valor ?? i.totalValue) : 0;
+      const rec = byInd[indId];
+      rec.inspections.push({ id: i.id, client: i.client?.name, value, status_pagamento: i.status_pagamento, paymentStatus: i.paymentStatus, inspector: i.inspector });
+      rec.totalCount += 1;
+      rec.totalValue += value;
+
+      const needsPay = (i.status_pagamento === 'A pagar') || (i.paymentStatus === 'Pendente') || (i.paymentStatus === undefined && i.status_pagamento === 'A pagar');
+      if (needsPay) {
+        rec.toPayCount += 1;
+        rec.toPayValue += value;
+      } else {
+        rec.paidCount += 1;
+        rec.paidValue += value;
+      }
+    });
+
+    const reportSummary = Object.values(byInd).map((r: any) => ({
+      indicationId: r.indicationId,
+      indicationName: r.indicationName,
+      totalCount: r.totalCount,
+      totalValue: r.totalValue,
+      toPayCount: r.toPayCount,
+      toPayValue: r.toPayValue,
+      paidCount: r.paidCount,
+      paidValue: r.paidValue,
+      inspections: r.inspections
+    }));
+
+    const fechamentoEntry = { mes, fechado: true, data_fechamento: now, usuario_fechou: currentUser.name || currentUser.id, report: { byIndication: reportSummary } };
+
     if (idx >= 0) {
-      updated[idx] = { ...updated[idx], fechado: true, data_fechamento: now, usuario_fechou: currentUser.name || currentUser.id };
+      updated[idx] = { ...updated[idx], ...fechamentoEntry };
     } else {
-      updated.push({ mes, fechado: true, data_fechamento: now, usuario_fechou: currentUser.name || currentUser.id });
+      updated.push(fechamentoEntry);
     }
     setFechamentosMensais(updated);
 
-    // Create snapshot/relatório (Excel) for that month
+    // Optionally create snapshot/relatório (Excel) for that month
     try {
-      const items = inspections.filter(i => i.mes_referencia === mes);
       if (items.length > 0) {
-        // Use existing export util to generate excel report
-        // exportToExcel(items, `fechamento_${mes}.xlsx`); // optional download
+        // export detailed month inspections for download
+        // import util at top of file is available: exportToExcel
+        // Uncomment below to trigger automatic download
+        // exportToExcel(items as any, `fechamento_${mes}.xlsx`);
       }
     } catch (err) {
       console.error('Erro ao gerar snapshot do mês', err);
     }
 
-    addFinancialLog({ who: currentUser.id || currentUser.name, action: 'fechar_mes', mes, data_fechamento: now });
-    alert(`Mês ${mes} marcado como fechado.`);
+    addFinancialLog({ who: currentUser.id || currentUser.name, action: 'fechar_mes', mes, data_fechamento: now, reportSummary });
+    alert(`Mês ${mes} marcado como fechado. Relatório por indicação gerado.`);
   };
 
 
