@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { TestPage } from './views/TestPage';
-import { ViewState, User, Indication, ServiceItem, Inspection, Role, PaymentStatus } from './types';
+import { ViewState, User, Indication, ServiceItem, Inspection, Role } from './types';
 import { collection, query, onSnapshot, orderBy, deleteDoc, doc, setDoc, addDoc } from 'firebase/firestore';
 import { db } from './firebase';
 import { Login } from './views/Login';
@@ -45,8 +45,8 @@ const MOCK_INSPECTIONS: Inspection[] = [
       cep: '01001-000',
       number: '123'
     },
-    status: 'Completa',
-    paymentStatus: 'Pago (Dinheiro)',
+    status: 'Concluída',
+    paymentStatus: 'Dinheiro',
     inspector: 'Pedro',
     totalValue: 250.00
   },
@@ -63,7 +63,7 @@ const MOCK_INSPECTIONS: Inspection[] = [
       cep: '01311-000',
       number: '900'
     },
-    status: 'Iniciada',
+    status: 'No Caixa',
     paymentStatus: 'A pagar',
     totalValue: 150.00
   }
@@ -181,7 +181,7 @@ const App: React.FC = () => {
 
   const atualizar_status_ficha = (ficha: Inspection) => {
     // Now based on status
-    return ficha.status === 'Completa' ? 'Completa' : 'Incompleta';
+    return ficha.status === 'Concluída' ? 'Concluída' : 'Incompleta';
   };
 
   const handleSaveInspection = (inspection: Inspection) => {
@@ -232,7 +232,7 @@ const App: React.FC = () => {
     setCurrentView(ViewState.INSPECTION_LIST);
   };
 
-  // Bulk update payment status (only paymentStatus, not inspection status)
+  // Bulk update inspections: set paymentStatus and status to 'Concluída' if paid, or 'No Caixa' if 'A pagar'
   const handleBulkUpdatePaymentStatus = (ids: string[], newPaymentStatus: string) => {
     // Validate month closure and ficha completeness for each
     const errors: string[] = [];
@@ -246,20 +246,21 @@ const App: React.FC = () => {
       }
 
 
-      // If marking as 'Pago', ensure ficha completa
-      if (newPaymentStatus && newPaymentStatus.startsWith('Pago') && inspection.status !== 'Completa') {
-        errors.push(`A ficha ${inspection.id} deve estar completa para registrar pagamento.`);
-        return inspection;
-      }
+      const isPaid = newPaymentStatus && newPaymentStatus !== 'A pagar';
+      // If marking as paid, ensure ficha is in 'No Caixa' or something? But summary allows bulk marking from 'A pagar' to paid.
 
       const before = { paymentStatus: inspection.paymentStatus, valor: inspection.valor, data_pagamento: inspection.data_pagamento };
       const updated = { ...inspection, paymentStatus: newPaymentStatus as any };
-      // If marking as paid, set data_pagamento
-      if (newPaymentStatus && newPaymentStatus.startsWith('Pago')) {
+      // If marking as paid, set status to 'Concluída' and data_pagamento
+      if (isPaid) {
+        updated.status = 'Concluída';
         updated.data_pagamento = new Date().toISOString();
+      } else {
+        // If 'A pagar', set status to 'No Caixa'
+        updated.status = 'No Caixa';
       }
       // log
-      addFinancialLog({ who: currentUser?.id || currentUser?.name, action: 'bulk_update_payment_status', ficheId: inspection.id, before, after: { paymentStatus: updated.paymentStatus, data_pagamento: updated.data_pagamento } });
+      addFinancialLog({ who: currentUser?.id || currentUser?.name, action: 'bulk_update_payment_status', ficheId: inspection.id, before, after: { paymentStatus: updated.paymentStatus, status: updated.status, data_pagamento: updated.data_pagamento } });
       return updated;
     });
 
@@ -290,7 +291,7 @@ const App: React.FC = () => {
 
     // Optional: check pendências (fichas com status_ficha != Completa or payments pending)
     if (options?.checkPendencias) {
-      const pend = inspections.filter(i => (i.mes_referencia === mes) && (i.status !== 'Completa' || (i.paymentStatus === 'A pagar')));
+      const pend = inspections.filter(i => (i.mes_referencia === mes) && (i.status !== 'Concluída' || (i.paymentStatus === 'A pagar')));
       if (pend.length > 0) {
         if (!window.confirm(`Existem ${pend.length} pendências. Deseja prosseguir com o fechamento?`)) return;
       }

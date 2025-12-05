@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Inspection, PaymentStatus, Inspector, Indication, User } from '../types';
+import { Inspection, PaymentMethod, Inspector, Indication, User } from '../types';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { ArrowLeft, Save, ArrowRight, DollarSign, Send, CheckSquare, Square, Trash2, FileText, Download } from 'lucide-react';
@@ -184,7 +184,7 @@ export const InspectionForm: React.FC<InspectionFormProps> = ({
           ...formData,
           id: formData.id || Math.random().toString(36).substr(2, 9),
           totalValue: calculateTotal(),
-          status: 'Aguardando',
+          status: 'No Caixa',
           paymentStatus: formData.paymentStatus
       } as Inspection);
   };
@@ -217,15 +217,16 @@ export const InspectionForm: React.FC<InspectionFormProps> = ({
   };
 
     const handleFinalSave = (e: React.FormEvent) => {
-            e.preventDefault();
-            onSave({
-                ...formData,
-                id: formData.id || Math.random().toString(36).substr(2, 9),
-                totalValue: calculateTotal(),
-                status: 'Completa',
-                paymentStatus: formData.paymentStatus
-            } as Inspection);
-    };
+             e.preventDefault();
+             const newStatus = formData.paymentStatus === 'A pagar' ? 'No Caixa' : 'Concluída';
+             onSave({
+                 ...formData,
+                 id: formData.id || Math.random().toString(36).substr(2, 9),
+                 totalValue: calculateTotal(),
+                 status: newStatus,
+                 paymentStatus: formData.paymentStatus
+             } as Inspection);
+     };
   
   const handleDeleteClick = () => {
       if (onDelete && formData.id) {
@@ -504,13 +505,10 @@ export const InspectionForm: React.FC<InspectionFormProps> = ({
                             >
                                 <option value="">Selecione...</option>
                                 <option value="A pagar">A pagar</option>
-                                <option value="Pago (Dinheiro)">Pago (Dinheiro)</option>
-                                <option value="Pago (Cartão de Crédito)">Pago (Cartão de Crédito)</option>
-                                <option value="Pago (Cartão de Débito)">Pago (Cartão de Débito)</option>
-                                <option value="Pago (Pix)">Pago (Pix)</option>
-                                <option value="Pago (Transferência)">Pago (Transferência)</option>
-                                <option value="Pago (Boleto)">Pago (Boleto)</option>
-                                <option value="Pago (Outros)">Pago (Outros)</option>
+                                <option value="Pix">Pix</option>
+                                <option value="Dinheiro">Dinheiro</option>
+                                <option value="Crédito">Crédito</option>
+                                <option value="Débito">Débito</option>
                             </select>
                         </div>
 

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Inspection, ViewState, User, PaymentStatus } from '../types';
+import { Inspection, ViewState, User, PaymentMethod } from '../types';
 import { Button } from '../components/ui/Button';
 import { Edit2, Trash2, Search, Plus, Eye, FileText, Download, Filter, X } from 'lucide-react';
 import { InspectionForm } from './InspectionForm';
@@ -22,12 +22,12 @@ export const InspectionList: React.FC<InspectionListProps> = ({ inspections, onE
   const [searchTerm, setSearchTerm] = useState('');
   
   // Filters
-  const [filterStatus, setFilterStatus] = useState<'Todos' | 'Iniciada' | 'Aguardando' | 'Completa'>('Todos');
+  const [filterStatus, setFilterStatus] = useState<'Todos' | 'Iniciada' | 'No Caixa' | 'Concluída'>('Todos');
   const [dateStart, setDateStart] = useState('');
   const [dateEnd, setDateEnd] = useState('');
   const [filterIndication, setFilterIndication] = useState('');
   const [filterService, setFilterService] = useState('');
-  const [filterPaymentStatus, setFilterPaymentStatus] = useState<'All' | PaymentStatus>('All');
+  const [filterPaymentStatus, setFilterPaymentStatus] = useState<'All' | PaymentMethod>('All');
   
   // Value Range
   const [minValue, setMinValue] = useState('');
@@ -74,14 +74,14 @@ export const InspectionList: React.FC<InspectionListProps> = ({ inspections, onE
 
   // Totals Calculation
   const totalValue = filtered.reduce((acc, curr) => acc + (curr.totalValue || 0), 0);
-    const totalPaid = filtered.filter(i => i.paymentStatus && i.paymentStatus.startsWith('Pago')).reduce((acc, curr) => acc + (curr.totalValue || 0), 0);
+    const totalPaid = filtered.filter(i => i.paymentStatus && i.paymentStatus !== 'A pagar' && i.status === 'Concluída').reduce((acc, curr) => acc + (curr.totalValue || 0), 0);
     const totalPending = filtered.filter(i => i.paymentStatus === 'A pagar').reduce((acc, curr) => acc + (curr.totalValue || 0), 0);
 
   // Counts
   const totalCount = filtered.length;
-  const completedCount = filtered.filter(i => i.status === 'Completa').length;
+  const completedCount = filtered.filter(i => i.status === 'Concluída').length;
   const pendingCount = filtered.filter(i => i.status === 'Iniciada').length;
-  const awaitingCount = filtered.filter(i => i.status === 'Aguardando').length;
+  const awaitingCount = filtered.filter(i => i.status === 'No Caixa').length;
 
   const handleExport = async (type: 'pdf' | 'excel') => {
     try {
@@ -173,7 +173,7 @@ export const InspectionList: React.FC<InspectionListProps> = ({ inspections, onE
                 <p className="text-3xl font-bold text-green-700">{completedCount}</p>
             </div>
             <div className="bg-orange-50 p-4 rounded-xl shadow-sm border border-orange-100">
-                <p className="text-orange-600 text-xs uppercase font-bold">Aguardando</p>
+                <p className="text-orange-600 text-xs uppercase font-bold">No Caixa</p>
                 <p className="text-3xl font-bold text-orange-700">{awaitingCount}</p>
             </div>
             <div className="bg-gray-50 p-4 rounded-xl shadow-sm border border-gray-100">
@@ -238,8 +238,8 @@ export const InspectionList: React.FC<InspectionListProps> = ({ inspections, onE
                             <select className="w-full px-3 py-2 border rounded-lg text-sm" value={filterStatus} onChange={(e: any) => setFilterStatus(e.target.value)}>
                                 <option value="Todos">Todos</option>
                                 <option value="Iniciada">Iniciada</option>
-                                <option value="Aguardando">Aguardando</option>
-                                <option value="Completa">Completa</option>
+                                <option value="No Caixa">No Caixa</option>
+                                <option value="Concluída">Concluída</option>
                             </select>
                         </div>
                         
@@ -267,8 +267,11 @@ export const InspectionList: React.FC<InspectionListProps> = ({ inspections, onE
                                       <label className="text-xs font-bold text-gray-500">Status do Pagamento</label>
                                       <select className="w-full px-3 py-2 border rounded-lg text-sm" value={filterPaymentStatus} onChange={(e) => setFilterPaymentStatus(e.target.value as any)}>
                                           <option value="All">Todos</option>
-                                          <option value="A pagar">A pagar</option>
-                                          <option value="Pago (Dinheiro)">Pago (Dinheiro)</option>
+                                             <option value="A pagar">A pagar</option>
+                                             <option value="Pix">Pix</option>
+                                             <option value="Dinheiro">Dinheiro</option>
+                                             <option value="Crédito">Crédito</option>
+                                             <option value="Débito">Débito</option>
                                       </select>
                                 </div>
 
@@ -302,11 +305,11 @@ export const InspectionList: React.FC<InspectionListProps> = ({ inspections, onE
                                         alert('Nenhum item selecionado');
                                         return;
                                     }
-                                    const paymentMethod = window.prompt('Escolha a forma de pagamento:', 'Dinheiro');
-                                    if (!paymentMethod) return;
-                                    const status = `Pago (${paymentMethod})`;
-                                    if (!window.confirm(`Deseja marcar ${selectedIds.length} item(s) como ${status}?`)) return;
-                                    onBulkPaymentUpdate(selectedIds, status);
+                                    const methods = ['Pix', 'Dinheiro', 'Crédito', 'Débito'];
+                                    const paymentMethod = window.prompt(`Qual foi a forma de pagamento?\n${methods.join('\n')}`, 'Dinheiro');
+                                    if (!paymentMethod || !methods.includes(paymentMethod)) return;
+                                    if (!window.confirm(`Deseja marcar ${selectedIds.length} item(s) como pago via ${paymentMethod}?`)) return;
+                                    onBulkPaymentUpdate(selectedIds, paymentMethod);
                                     setSelectedIds([]);
                                 }}
                                 className={`bg-green-600 hover:bg-green-700 ${selectedIds.length === 0 ? 'opacity-60 pointer-events-none' : ''}`}
@@ -356,7 +359,7 @@ export const InspectionList: React.FC<InspectionListProps> = ({ inspections, onE
                     </thead>
                     <tbody className="divide-y divide-gray-100">
                         {filtered.length > 0 ? filtered.map((item) => (
-                            <tr key={item.id} className="hover:bg-blue-50/30 transition-colors group">
+                            <tr key={item.id} className={`hover:bg-blue-50/30 transition-colors group ${item.paymentStatus === 'A pagar' ? 'bg-orange-50' : ''}`}>
                                 <td className="p-4 text-sm text-gray-600 font-medium whitespace-nowrap">
                                     {new Date(item.date).toLocaleDateString('pt-BR', { timeZone: 'UTC' })}
                                 </td>
@@ -389,11 +392,8 @@ export const InspectionList: React.FC<InspectionListProps> = ({ inspections, onE
                                                 <option value="">Selecione método...</option>
                                                 <option value="Pix">Pix</option>
                                                 <option value="Dinheiro">Dinheiro</option>
-                                                <option value="Cartão de Crédito">Cartão de Crédito</option>
-                                                <option value="Cartão de Débito">Cartão de Débito</option>
-                                                <option value="Transferência">Transferência</option>
-                                                <option value="Boleto">Boleto</option>
-                                                <option value="Outros">Outros</option>
+                                                <option value="Crédito">Crédito</option>
+                                                <option value="Débito">Débito</option>
                                             </select>
                                         ) : (
                                             <span
@@ -412,15 +412,15 @@ export const InspectionList: React.FC<InspectionListProps> = ({ inspections, onE
                                 </td>
                                 <td className="p-4">
                                     <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold border ${
-                                        item.status === 'Completa'
+                                        item.status === 'Concluída'
                                             ? 'bg-green-50 text-green-700 border-green-100'
-                                            : item.status === 'Aguardando'
+                                            : item.status === 'No Caixa'
                                             ? 'bg-orange-50 text-orange-700 border-orange-100'
                                             : 'bg-gray-100 text-gray-600 border-gray-200'
                                     }`}>
                                         <span className={`w-1.5 h-1.5 rounded-full mr-1.5 ${
-                                            item.status === 'Completa' ? 'bg-green-500' :
-                                            item.status === 'Aguardando' ? 'bg-orange-500' :
+                                            item.status === 'Concluída' ? 'bg-green-500' :
+                                            item.status === 'No caixa' ? 'bg-orange-500' :
                                             'bg-gray-500'
                                         }`}></span>
                                         {item.status}
