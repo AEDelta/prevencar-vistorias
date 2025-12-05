@@ -66,6 +66,7 @@ export const InspectionForm: React.FC<InspectionFormProps> = ({
   const [formData, setFormData] = useState<Partial<Inspection>>({
     date: new Date().toISOString().split('T')[0],
     status: 'Iniciada',
+    paymentStatus: 'A pagar',
     selectedServices: [],
     client: {
         name: '',
@@ -183,7 +184,7 @@ export const InspectionForm: React.FC<InspectionFormProps> = ({
           ...formData,
           id: formData.id || Math.random().toString(36).substr(2, 9),
           totalValue: calculateTotal(),
-          status: 'Completa',
+          status: 'Aguardando',
           paymentStatus: formData.paymentStatus
       } as Inspection);
   };
@@ -221,7 +222,7 @@ export const InspectionForm: React.FC<InspectionFormProps> = ({
                 ...formData,
                 id: formData.id || Math.random().toString(36).substr(2, 9),
                 totalValue: calculateTotal(),
-                status: 'Aguardando',
+                status: 'Completa',
                 paymentStatus: formData.paymentStatus
             } as Inspection);
     };

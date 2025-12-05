@@ -302,8 +302,11 @@ export const InspectionList: React.FC<InspectionListProps> = ({ inspections, onE
                                         alert('Nenhum item selecionado');
                                         return;
                                     }
-                                    if (!window.confirm(`Deseja marcar ${selectedIds.length} item(s) como Pago (Dinheiro)?`)) return;
-                                    onBulkUpdate(selectedIds, 'Pago (Dinheiro)');
+                                    const paymentMethod = window.prompt('Escolha a forma de pagamento:', 'Dinheiro');
+                                    if (!paymentMethod) return;
+                                    const status = `Pago (${paymentMethod})`;
+                                    if (!window.confirm(`Deseja marcar ${selectedIds.length} item(s) como ${status}?`)) return;
+                                    onBulkPaymentUpdate(selectedIds, status);
                                     setSelectedIds([]);
                                 }}
                                 className={`bg-green-600 hover:bg-green-700 ${selectedIds.length === 0 ? 'opacity-60 pointer-events-none' : ''}`}
@@ -369,27 +372,28 @@ export const InspectionList: React.FC<InspectionListProps> = ({ inspections, onE
                                 </td>
                                 <td className="p-4 text-sm text-gray-600">{item.inspector || '-'}</td>
                                 <td className="p-4 text-sm text-gray-600">
-                                    {(currentUser?.role === 'admin' || currentUser?.role === 'financeiro') ? (
+                                    {(currentUser?.role === 'admin' || currentUser?.role === 'financeiro') && item.paymentStatus === 'A pagar' ? (
                                         editingPaymentId === item.id ? (
                                             <select
                                                 className="w-full px-2 py-1 border rounded text-xs"
-                                                value={item.paymentStatus || ''}
+                                                value=""
                                                 onChange={(e) => {
-                                                    const newStatus = e.target.value as PaymentStatus;
-                                                    onBulkUpdate([item.id], newStatus);
+                                                    const method = e.target.value;
+                                                    const newStatus = `Pago (${method})`;
+                                                    onBulkPaymentUpdate([item.id], newStatus);
                                                     setEditingPaymentId(null);
                                                 }}
                                                 onBlur={() => setEditingPaymentId(null)}
                                                 autoFocus
                                             >
-                                                <option value="A pagar">A pagar</option>
-                                                <option value="Pago (Dinheiro)">Pago (Dinheiro)</option>
-                                                <option value="Pago (Cartão de Crédito)">Pago (Cartão de Crédito)</option>
-                                                <option value="Pago (Cartão de Débito)">Pago (Cartão de Débito)</option>
-                                                <option value="Pago (Pix)">Pago (Pix)</option>
-                                                <option value="Pago (Transferência)">Pago (Transferência)</option>
-                                                <option value="Pago (Boleto)">Pago (Boleto)</option>
-                                                <option value="Pago (Outros)">Pago (Outros)</option>
+                                                <option value="">Selecione método...</option>
+                                                <option value="Pix">Pix</option>
+                                                <option value="Dinheiro">Dinheiro</option>
+                                                <option value="Cartão de Crédito">Cartão de Crédito</option>
+                                                <option value="Cartão de Débito">Cartão de Débito</option>
+                                                <option value="Transferência">Transferência</option>
+                                                <option value="Boleto">Boleto</option>
+                                                <option value="Outros">Outros</option>
                                             </select>
                                         ) : (
                                             <span
