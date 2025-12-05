@@ -129,8 +129,8 @@ export const exportToPDF = async (
 
     // Resumo Financeiro
     const totalValue = inspections.reduce((acc, i) => acc + (i.totalValue || 0), 0);
-    const totalPago = inspections.filter(i => (i.pagamento || i.paymentStatus) === 'Pago').reduce((acc, i) => acc + (i.totalValue || 0), 0);
-    const totalAPagar = inspections.filter(i => (i.pagamento || i.paymentStatus) === 'A pagar').reduce((acc, i) => acc + (i.totalValue || 0), 0);
+    const totalPago = inspections.filter(i => i.paymentStatus === 'Pago').reduce((acc, i) => acc + (i.totalValue || 0), 0);
+    const totalAPagar = inspections.filter(i => i.paymentStatus === 'A pagar').reduce((acc, i) => acc + (i.totalValue || 0), 0);
 
     pdf.setFontSize(10);
     pdf.setTextColor(0, 0, 0);
@@ -161,7 +161,7 @@ export const exportToPDF = async (
       inspection.client.name.substring(0, 12),
       inspection.inspector || '-',
       inspection.paymentMethod || '-',
-      inspection.pagamento || inspection.paymentStatus || '-',
+      inspection.paymentStatus || '-',
       inspection.status,
       formatCurrency(inspection.totalValue)
     ]);
@@ -276,7 +276,7 @@ export const exportMonthlyClosurePDF = async (
       const tableData = indication.inspections.map((insp: any) => [
         insp.client || '-',
         formatCurrency(insp.value),
-        insp.pagamento || insp.status_pagamento || insp.paymentStatus || '-'
+        insp.status_pagamento || insp.paymentStatus || '-'
       ]);
 
       tableData.push([
@@ -407,7 +407,7 @@ export const exportInspectionDetailToPDF = async (
     yPosition += 5;
     pdf.text(`Forma de Pagamento: ${inspection.paymentMethod || '-'}`, margin, yPosition);
     yPosition += 5;
-    pdf.text(`Status do Pagamento: ${inspection.pagamento || inspection.paymentStatus || '-'}`, margin, yPosition);
+    pdf.text(`Status do Pagamento: ${inspection.paymentStatus || '-'}`, margin, yPosition);
     yPosition += 5;
     pdf.text(`Status da Ficha: ${inspection.status}`, margin, yPosition);
     yPosition += 5;

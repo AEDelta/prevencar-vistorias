@@ -46,7 +46,7 @@ const MOCK_INSPECTIONS: Inspection[] = [
       number: '123'
     },
     status: 'Concluída',
-    pagamento: 'Pago',
+    paymentStatus: 'Recebido',
     inspector: 'Pedro',
     paymentMethod: 'Pix',
     totalValue: 250.00
@@ -65,7 +65,7 @@ const MOCK_INSPECTIONS: Inspection[] = [
       number: '900'
     },
     status: 'Pendente',
-    pagamento: 'A pagar',
+    paymentStatus: 'Pendente',
     totalValue: 150.00
   }
 ] as any[]; 
@@ -108,8 +108,6 @@ const App: React.FC = () => {
   const [editingInspection, setEditingInspection] = useState<Inspection | null>(null);
 
   const useFirestore = Boolean(import.meta.env.VITE_FIREBASE_PROJECT_ID);
-  // Closures service (lazy require to avoid circular deps in some setups)
-  const closureService = useFirestore ? require('./services/closureService').default : null;
 
   // Fechamentos mensais and financial logs persisted locally (or via Firestore if configured)
   const [fechamentosMensais, setFechamentosMensais] = useLocalStorage<any[]>('prevencar_fechamentos_mensais', []);
@@ -208,9 +206,9 @@ const App: React.FC = () => {
       return;
     }
     
-    // Ensure pagamento exists (default to 'A pagar' if not set)
-    if (!inspection.pagamento) {
-      inspection.pagamento = 'A pagar';
+    // Ensure paymentStatus exists and defaults sensibly
+    if (!inspection.paymentStatus) {
+      inspection.paymentStatus = inspection.paymentMethod === PaymentMethod.A_PAGAR ? 'A pagar' : 'Pago';
     }
     if (useFirestore) {
       const inspectionsCol = collection(db, 'inspections');
@@ -225,8 +223,8 @@ const App: React.FC = () => {
       if (editingInspection) {
         const prevIns = inspections.find(i => i.id === inspection.id);
         if (prevIns) {
-          const before = { pagamento: prevIns.pagamento, valor: prevIns.valor, data_pagamento: prevIns.data_pagamento };
-          const after = { pagamento: inspection.pagamento, valor: inspection.valor, data_pagamento: inspection.data_pagamento };
+          const before = { paymentStatus: prevIns.paymentStatus, valor: prevIns.valor, data_pagamento: prevIns.data_pagamento };
+          const after = { paymentStatus: inspection.paymentStatus, valor: inspection.valor, data_pagamento: inspection.data_pagamento };
           if (JSON.stringify(before) !== JSON.stringify(after)) {
             addFinancialLog({ who: currentUser?.id || currentUser?.name, action: 'update_inspection', ficheId: inspection.id, before, after });
           }
@@ -234,14 +232,14 @@ const App: React.FC = () => {
         setInspections(prev => prev.map(i => i.id === inspection.id ? inspection : i));
       } else {
         setInspections(prev => [inspection, ...prev]);
-        addFinancialLog({ who: currentUser?.id || currentUser?.name, action: 'create_inspection', ficheId: inspection.id, after: { pagamento: inspection.pagamento, valor: inspection.valor, data_pagamento: inspection.data_pagamento } });
+        addFinancialLog({ who: currentUser?.id || currentUser?.name, action: 'create_inspection', ficheId: inspection.id, after: { paymentStatus: inspection.paymentStatus, valor: inspection.valor, data_pagamento: inspection.data_pagamento } });
       }
     }
     setCurrentView(ViewState.INSPECTION_LIST);
   };
 
   // Bulk update payment status (only paymentStatus, not inspection status)
-  const handleBulkUpdatePaymentStatus = async (ids: string[], newPaymentStatus: string) : Promise<void> => {
+  const handleBulkUpdatePaymentStatus = (ids: string[], newPaymentStatus: string) => {
     // Validate month closure and ficha completeness for each
     const errors: string[] = [];
     const updatedInspections = inspections.map(inspection => {
@@ -253,20 +251,26 @@ const App: React.FC = () => {
         return inspection;
       }
 
+      // Only allow marking as 'Pago' if paymentMethod is 'A Pagar'
+      if (newPaymentStatus === 'Pago' && inspection.paymentMethod !== PaymentMethod.A_PAGAR) {
+        errors.push(`A ficha ${inspection.id} não tem forma de pagamento "A Pagar", não pode ser marcada como paga.`);
+        return inspection;
+      }
+
       // If marking as 'Pago', ensure ficha completa
       if (newPaymentStatus === 'Pago' && inspection.status_ficha !== 'Completa') {
         errors.push(`A ficha ${inspection.id} deve estar completa para registrar pagamento.`);
         return inspection;
       }
 
-      const before = { pagamento: inspection.pagamento, valor: inspection.valor, data_pagamento: inspection.data_pagamento };
-      const updated = { ...inspection, pagamento: newPaymentStatus as any };
+      const before = { paymentStatus: inspection.paymentStatus, valor: inspection.valor, data_pagamento: inspection.data_pagamento };
+      const updated = { ...inspection, paymentStatus: newPaymentStatus as any };
       // If marking as paid, set data_pagamento
       if (newPaymentStatus === 'Pago') {
         updated.data_pagamento = new Date().toISOString();
       }
       // log
-      addFinancialLog({ who: currentUser?.id || currentUser?.name, action: 'bulk_update_payment_status', ficheId: inspection.id, before, after: { pagamento: updated.pagamento, data_pagamento: updated.data_pagamento } });
+      addFinancialLog({ who: currentUser?.id || currentUser?.name, action: 'bulk_update_payment_status', ficheId: inspection.id, before, after: { paymentStatus: updated.paymentStatus, data_pagamento: updated.data_pagamento } });
       return updated;
     });
 
@@ -275,19 +279,10 @@ const App: React.FC = () => {
     }
 
     if (useFirestore) {
-      const promises: Promise<any>[] = [];
       ids.forEach(id => {
         const ins = updatedInspections.find(i => i.id === id);
-        if (ins) {
-          promises.push(setDoc(doc(db, 'inspections', id), { ...ins }).catch(err => console.error('Erro ao atualizar pagamento no Firestore', err)));
-        }
+        if (ins) setDoc(doc(db, 'inspections', id), { ...ins }).catch(err => console.error('Erro ao atualizar paymentStatus no Firestore', err));
       });
-      await Promise.all(promises);
-      // Update local state after successful writes
-      setInspections(prev => prev.map(i => {
-        const updated = updatedInspections.find(u => u.id === i.id);
-        return updated ? updated : i;
-      }));
     } else {
       setInspections(updatedInspections);
     }
@@ -306,7 +301,7 @@ const App: React.FC = () => {
 
     // Optional: check pendências (fichas com status_ficha != Completa or payments pending)
     if (options?.checkPendencias) {
-      const pend = inspections.filter(i => (i.mes_referencia === mes) && (i.status_ficha !== 'Completa' || (i.pagamento === 'A pagar')));
+      const pend = inspections.filter(i => (i.mes_referencia === mes) && (i.status_ficha !== 'Completa' || (i.paymentStatus === 'A pagar')));
       if (pend.length > 0) {
         if (!window.confirm(`Existem ${pend.length} pendências. Deseja prosseguir com o fechamento?`)) return;
       }
@@ -339,11 +334,11 @@ const App: React.FC = () => {
 
       const value = typeof (i.valor ?? i.totalValue) === 'number' ? (i.valor ?? i.totalValue) : 0;
       const rec = byInd[indId];
-      rec.inspections.push({ id: i.id, client: i.client?.name, value, pagamento: i.pagamento, inspector: i.inspector });
+      rec.inspections.push({ id: i.id, client: i.client?.name, value, paymentStatus: i.paymentStatus, inspector: i.inspector });
       rec.totalCount += 1;
       rec.totalValue += value;
 
-      const needsPay = (i.pagamento === 'A pagar');
+      const needsPay = (i.paymentStatus === 'A pagar');
       if (needsPay) {
         rec.toPayCount += 1;
         rec.toPayValue += value;
@@ -387,22 +382,6 @@ const App: React.FC = () => {
     }
 
     addFinancialLog({ who: currentUser.id || currentUser.name, action: 'fechar_mes', mes, data_fechamento: now, reportSummary });
-    // Persist closure to Firestore when available
-    if (useFirestore && closureService) {
-      try {
-        const closureObj = {
-          mes: mes,
-          vistoriadorId: currentUser.id,
-          vistoriadorName: currentUser.name,
-          valorTotal: reportSummary.reduce((s: number, r: any) => s + (r.totalValue || 0), 0),
-          dataFechamento: now,
-          status: 'Aguardando aprovação'
-        } as any;
-        await closureService.createClosure(closureObj, { id: currentUser.id, name: currentUser.name, role: currentUser.role as any });
-      } catch (err) {
-        console.error('Erro ao persistir fechamento no Firestore', err);
-      }
-    }
     alert(`Mês ${mes} marcado como fechado. Relatório por indicação gerado.`);
   };
 
@@ -525,17 +504,6 @@ const App: React.FC = () => {
               fechamentosMensais={fechamentosMensais}
               onGetFechamentos={( ) => fechamentosMensais}
             />
-          </Layout>
-        );
-      case ViewState.CLOSURES:
-        return (
-          <Layout currentView={currentView} changeView={setCurrentView} logout={handleLogout} currentUser={currentUser}>
-            {/* Closures view only for admin/financeiro */}
-            {/* Lazy import to avoid circular deps */}
-            <React.Suspense fallback={<div>Carregando...</div>}>
-              {/* @ts-ignore */}
-              {React.createElement(require('./views/Closures').default, { currentUser })}
-            </React.Suspense>
           </Layout>
         );
       default:

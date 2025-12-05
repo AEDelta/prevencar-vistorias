@@ -1,5 +1,9 @@
-import React, { useState, useEffect } from 'react';
-import { Inspection, ViewState, User, Pagamento } from '../types';
+import React, { useState } from 'react';
+import { Inspection, ViewState, User, PaymentMethod, PaymentStatus } from '../types';
+// Função utilitária para calcular situação do pagamento
+function getPaymentStatus(paymentMethod: PaymentMethod | string): PaymentStatus {
+    return paymentMethod === PaymentMethod.A_PAGAR ? 'A pagar' : 'Pago';
+}
 import { Button } from '../components/ui/Button';
 import { Edit2, Trash2, Search, Plus, Eye, FileText, Download, Filter, X } from 'lucide-react';
 import { InspectionForm } from './InspectionForm';
@@ -28,7 +32,7 @@ export const InspectionList: React.FC<InspectionListProps> = ({ inspections, onE
   const [filterIndication, setFilterIndication] = useState('');
   const [filterService, setFilterService] = useState('');
   const [filterPayment, setFilterPayment] = useState('');
-    const [filterPaymentStatus, setFilterPaymentStatus] = useState<'All' | Pagamento | string>('All');
+    const [filterPaymentStatus, setFilterPaymentStatus] = useState<'All' | 'A pagar' | 'Pago'>('All');
   
   // Value Range
   const [minValue, setMinValue] = useState('');
@@ -37,14 +41,6 @@ export const InspectionList: React.FC<InspectionListProps> = ({ inspections, onE
   const [showFilters, setShowFilters] = useState(false);
   const [viewOnlyItem, setViewOnlyItem] = useState<Inspection | null>(null);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
-    const [savingIds, setSavingIds] = useState<string[]>([]);
-    const [toast, setToast] = useState<{ message: string; type?: 'success' | 'error' } | null>(null);
-
-    useEffect(() => {
-        if (!toast) return;
-        const t = setTimeout(() => setToast(null), 3500);
-        return () => clearTimeout(t);
-    }, [toast]);
 
   const filtered = inspections.filter(i => {
     // Text Search
@@ -71,9 +67,8 @@ export const InspectionList: React.FC<InspectionListProps> = ({ inspections, onE
     // Payment Filter
     const matchesPayment = !filterPayment || i.paymentMethod === filterPayment;
 
-    // Payment Status Filter (use explicit `pagamento` field)
-    const pagamentoValue = (i as any).pagamento || 'A pagar';
-    const matchesPaymentStatus = filterPaymentStatus === 'All' || pagamentoValue === filterPaymentStatus;
+    // Payment Status Filter
+    const matchesPaymentStatus = filterPaymentStatus === 'All' || getPaymentStatus(i.paymentMethod) === filterPaymentStatus;
 
     // Value Range
     const val = i.totalValue || 0;
@@ -86,8 +81,8 @@ export const InspectionList: React.FC<InspectionListProps> = ({ inspections, onE
 
   // Totals Calculation
   const totalValue = filtered.reduce((acc, curr) => acc + (curr.totalValue || 0), 0);
-    const totalPaid = filtered.filter(i => ((i as any).pagamento || 'A pagar') === 'Pago').reduce((acc, curr) => acc + (curr.totalValue || 0), 0);
-    const totalPending = filtered.filter(i => ((i as any).pagamento || 'A pagar') === 'A pagar').reduce((acc, curr) => acc + (curr.totalValue || 0), 0);
+    const totalPaid = filtered.filter(i => getPaymentStatus(i.paymentMethod) === 'Pago').reduce((acc, curr) => acc + (curr.totalValue || 0), 0);
+    const totalPending = filtered.filter(i => getPaymentStatus(i.paymentMethod) === 'A pagar').reduce((acc, curr) => acc + (curr.totalValue || 0), 0);
 
   // Counts
   const totalCount = filtered.length;
@@ -206,12 +201,6 @@ export const InspectionList: React.FC<InspectionListProps> = ({ inspections, onE
                     <p className="text-2xl font-bold text-orange-700">{formatCurrency(totalPending)}</p>
                 </div>
             </div>
-            {/* Toast */}
-            {toast && (
-                <div className={`fixed right-6 bottom-6 z-50 px-4 py-2 rounded shadow-lg ${toast.type === 'error' ? 'bg-red-600 text-white' : 'bg-green-600 text-white'}`}>
-                    {toast.message}
-                </div>
-            )}
         )}
 
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
@@ -274,9 +263,18 @@ export const InspectionList: React.FC<InspectionListProps> = ({ inspections, onE
                             </select>
                         </div>
                         
-                                {/* Payment Filter: Pagamento (A pagar / Pago) */}
+                        {/* Payment Method */}
+                        <div className="space-y-1">
+                             <label className="text-xs font-bold text-gray-500">Forma de Pagamento</label>
+                             <select className="w-full px-3 py-2 border rounded-lg text-sm" value={filterPayment} onChange={(e) => setFilterPayment(e.target.value)}>
+                                <option value="">Todas</option>
+                                {Object.values(PaymentMethod).map(pm => <option key={pm} value={pm}>{pm}</option>)}
+                            </select>
+                        </div>
+
+                                {/* Payment Status */}
                                 <div className="space-y-1">
-                                      <label className="text-xs font-bold text-gray-500">Pagamento</label>
+                                      <label className="text-xs font-bold text-gray-500">Status do Pagamento</label>
                                       <select className="w-full px-3 py-2 border rounded-lg text-sm" value={filterPaymentStatus} onChange={(e) => setFilterPaymentStatus(e.target.value as any)}>
                                           <option value="All">Todos</option>
                                           <option value="A pagar">A pagar</option>
@@ -390,6 +388,7 @@ export const InspectionList: React.FC<InspectionListProps> = ({ inspections, onE
                             <th className="p-4">Vistoriador</th>
                             <th className="p-4">Pagamento</th>
                             <th className="p-4">Valor</th>
+                            <th className="p-4">Situação Pagamento</th>
                             <th className="p-4">Status</th>
                             <th className="p-4 text-center">
                                 <input
@@ -425,52 +424,34 @@ export const InspectionList: React.FC<InspectionListProps> = ({ inspections, onE
                                     {item.indicationName && <div className="text-xs text-brand-blue bg-blue-50 px-2 py-0.5 rounded-full inline-block mt-1">Ind: {item.indicationName}</div>}
                                 </td>
                                 <td className="p-4 text-sm text-gray-600">{item.inspector || '-'}</td>
-                                <td className="p-4">
-                                    {(currentUser?.role === 'admin' || currentUser?.role === 'financeiro') ? (
-                                        <div className="flex items-center gap-2">
-                                          <select value={(item as any).pagamento || 'A pagar'} disabled={savingIds.includes(item.id)} className="px-2 py-1 border rounded" onChange={async (e) => {
-                                              if (!onBulkPaymentUpdate) { alert('Operação não disponível'); return; }
-                                              const novo = e.target.value as Pagamento;
-                                              try {
-                                                setSavingIds(prev => [...prev, item.id]);
-                                                await onBulkPaymentUpdate([item.id], novo);
-                                                setToast({ message: `Pagamento atualizado: ${novo}`, type: 'success' });
-                                              } catch (err) {
-                                                console.error(err);
-                                                setToast({ message: `Erro ao atualizar pagamento`, type: 'error' });
-                                              } finally {
-                                                setSavingIds(prev => prev.filter(id => id !== item.id));
-                                              }
-                                          }}>
-                                              <option value="A pagar">A pagar</option>
-                                              <option value="Pago">Pago</option>
-                                          </select>
-                                          {savingIds.includes(item.id) && <span className="text-xs text-gray-500">Salvando...</span>}
-                                        </div>
-                                    ) : (
-                                        <span>{(item as any).pagamento || '-'}</span>
-                                    )}
-                                </td>
+                                <td className="p-4 text-sm text-gray-600">{item.paymentMethod || '-'}</td>
                                 <td className="p-4 text-sm font-bold text-gray-700">
                                     {isVistoriador ? 'R$ ***' : formatCurrency(item.totalValue)}
                                 </td>
-                                    <td className="p-4">
-                                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold border ${
-                                            item.status === 'A Finalizar'
-                                                ? 'bg-green-50 text-green-700 border-green-100'
-                                                : 'bg-gray-100 text-gray-600 border-gray-200'
-                                        }`}>
-                                            <span className={`w-1.5 h-1.5 rounded-full mr-1.5 ${item.status === 'A Finalizar' ? 'bg-green-500' : 'bg-gray-500'}`}></span>
-                                            {item.status}
-                                        </span>
-                                    </td>
+                                <td className="p-4">
+                                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${
+                                        (getPaymentStatus(item.paymentMethod) === 'Pago') ? 'bg-green-50 text-green-700 border-green-100' : 'bg-gray-100 text-gray-600 border-gray-200'
+                                    }`}>
+                                        {getPaymentStatus(item.paymentMethod)}
+                                    </span>
+                                </td>
+                                <td className="p-4">
+                                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold border ${
+                                        item.status === 'A Finalizar'
+                                            ? 'bg-green-50 text-green-700 border-green-100'
+                                            : 'bg-gray-100 text-gray-600 border-gray-200'
+                                    }`}>
+                                        <span className={`w-1.5 h-1.5 rounded-full mr-1.5 ${item.status === 'A Finalizar' ? 'bg-green-500' : 'bg-gray-500'}`}></span>
+                                        {item.status}
+                                    </span>
+                                </td>
                                 <td className="p-4 text-center">
                                     {(currentUser?.role === 'admin' || currentUser?.role === 'financeiro') && (
                                         <input
                                             type="checkbox"
                                             checked={selectedIds.includes(item.id)}
-                                            disabled={((item as any).pagamento || 'A pagar') !== 'A pagar'}
-                                            title={((item as any).pagamento || 'A pagar') !== 'A pagar' ? 'Apenas fichas com pagamento "A pagar" podem ser marcadas como pagas' : ''}
+                                            disabled={item.paymentMethod !== PaymentMethod.A_PAGAR}
+                                            title={item.paymentMethod !== PaymentMethod.A_PAGAR ? 'Apenas fichas com forma de pagamento "A Pagar" podem ser marcadas como pagas' : ''}
                                             onChange={(e) => {
                                                 if (e.target.checked) {
                                                     setSelectedIds([...selectedIds, item.id]);

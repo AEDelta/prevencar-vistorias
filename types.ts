@@ -4,7 +4,6 @@ export enum ViewState {
   HOME = 'HOME',
   INSPECTION_LIST = 'INSPECTION_LIST',
   INSPECTION_FORM = 'INSPECTION_FORM',
-  CLOSURES = 'CLOSURES',
   MANAGEMENT = 'MANAGEMENT'
 }
 
@@ -32,10 +31,7 @@ export enum PaymentMethod {
 export type InspectionStatus = 'Iniciada' | 'A Finalizar';
 
 // Payment status: a pagar or pago
-export type PaymentStatus = never;
-
-// Novo campo de pagamento: 'A Pagar' ou 'Pago'
-export type Pagamento = 'A pagar' | 'Pago';
+export type PaymentStatus = 'A pagar' | 'Pago';
 
 export enum Inspector {
   CRIS = 'Cris',
@@ -81,7 +77,7 @@ export interface Inspection {
   status_ficha?: 'Incompleta' | 'Completa';
   
   // Financial: payment and date tracking
-  pagamento?: Pagamento; // 'A pagar' or 'Pago'
+  paymentStatus?: PaymentStatus; // 'A pagar' or 'Pago'
   data_pagamento?: string; // ISO date string when payment registered
   
   // Financial audit fields
@@ -106,36 +102,6 @@ export interface FechamentoMensal {
       totalValue: number;
     }>;
   };
-}
-
-export type ClosureStatus =
-  | 'Em aberto'
-  | 'Aguardando aprovação'
-  | 'Aprovado'
-  | 'Reprovado'
-  | 'Reaberto';
-
-export interface ClosureLog {
-  id?: string;
-  action: 'fechamento' | 'aprovacao' | 'reprovacao' | 'reabertura';
-  performedBy: string; // user id or name
-  performedAt: string; // ISO date
-  note?: string;
-}
-
-export interface Closure {
-  id?: string;
-  mes: string; // 'YYYY-MM'
-  vistoriadorId: string;
-  vistoriadorName: string;
-  valorTotal: number;
-  dataFechamento?: string; // ISO string when closed
-  status: ClosureStatus;
-  aprovadoPor?: string; // user id or name
-  dataAprovacao?: string; // ISO
-  reabertoPor?: string; // user id or name
-  dataReabertura?: string; // ISO
-  logs?: ClosureLog[];
 }
 
 export interface User {

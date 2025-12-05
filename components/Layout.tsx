@@ -28,7 +28,6 @@ export const Layout: React.FC<LayoutProps> = ({ currentView, changeView, logout,
   const navItems = [
     { label: 'Home', view: ViewState.HOME, icon: <Home size={20} />, roles: ['admin', 'financeiro', 'vistoriador'] },
     { label: 'Fichas', view: ViewState.INSPECTION_LIST, icon: <FileText size={20} />, roles: ['admin', 'financeiro', 'vistoriador'] },
-    { label: 'Fechamentos', view: ViewState.CLOSURES, icon: <FileText size={20} />, roles: ['admin', 'financeiro'] },
     // Only Admin and Financeiro see Management (Cadastros)
     { label: 'Cadastros', view: ViewState.MANAGEMENT, icon: <Settings size={20} />, roles: ['admin', 'financeiro'] },
   ];
@@ -37,7 +36,6 @@ export const Layout: React.FC<LayoutProps> = ({ currentView, changeView, logout,
     switch (currentView) {
         case ViewState.HOME: return 'Dashboard';
         case ViewState.INSPECTION_LIST: return 'Gestão de Fichas';
-      case ViewState.CLOSURES: return 'Fechamentos';
         case ViewState.INSPECTION_FORM: return 'Nova Vistoria';
         case ViewState.MANAGEMENT: return 'Administração';
         default: return 'Prevencar';

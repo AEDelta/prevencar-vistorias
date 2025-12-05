@@ -1,5 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Inspection, PaymentMethod, Inspector, Indication, User, Pagamento } from '../types';
+import { Inspection, PaymentMethod, Inspector, Indication, User, PaymentStatus } from '../types';
+// Função utilitária para calcular situação do pagamento
+function getPaymentStatus(paymentMethod: PaymentMethod | string): PaymentStatus {
+    return paymentMethod === PaymentMethod.A_PAGAR ? 'A pagar' : 'Pago';
+}
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { ArrowLeft, Save, ArrowRight, DollarSign, Send, CheckSquare, Square, Trash2, FileText, Download } from 'lucide-react';
@@ -184,7 +188,7 @@ export const InspectionForm: React.FC<InspectionFormProps> = ({
           id: formData.id || Math.random().toString(36).substr(2, 9),
           totalValue: calculateTotal(),
           status: 'A Finalizar',
-          pagamento: formData.pagamento || 'A pagar'
+          paymentStatus: getPaymentStatus(formData.paymentMethod)
       } as Inspection);
   };
 
@@ -222,7 +226,7 @@ export const InspectionForm: React.FC<InspectionFormProps> = ({
                 id: formData.id || Math.random().toString(36).substr(2, 9),
                 totalValue: calculateTotal(),
                 status: 'A Finalizar',
-                pagamento: formData.pagamento || 'A pagar'
+                paymentStatus: getPaymentStatus(formData.paymentMethod)
             } as Inspection);
     };
   
@@ -262,7 +266,7 @@ export const InspectionForm: React.FC<InspectionFormProps> = ({
                                     <div className="p-2 bg-gray-50 rounded col-span-2"><strong>Observações:</strong> {formData.observations || '-'}</div>
                                     <div className="p-2 bg-gray-50 rounded"><strong>Status:</strong> {formData.status}</div>
                                     <div className="p-2 bg-gray-50 rounded"><strong>Total:</strong> R$ {formData.totalValue?.toFixed(2)}</div>
-                                    <div className="p-2 bg-gray-50 rounded"><strong>Pagamento:</strong> {formData.pagamento || '-'}</div>
+                                    <div className="p-2 bg-gray-50 rounded"><strong>Situação do Pagamento:</strong> {getPaymentStatus(formData.paymentMethod)}</div>
                             </div>
                             <div className="flex gap-3 mt-6">
                                 <Button onClick={handleExportDetail} variant="outline" className="flex-1">
@@ -506,9 +510,9 @@ export const InspectionForm: React.FC<InspectionFormProps> = ({
                                 <option key={pm} value={pm}>{pm}</option>
                                 ))}
                             </select>
-                                                        <div className="mt-2 text-xs text-gray-600">
-                                                            <strong>Pagamento:</strong> {formData.pagamento || '-'}
-                                                        </div>
+                            <div className="mt-2 text-xs text-gray-600">
+                              <strong>Situação do Pagamento:</strong> {getPaymentStatus(formData.paymentMethod)}
+                            </div>
                         </div>
 
                         <Input
