@@ -22,12 +22,12 @@ export const InspectionList: React.FC<InspectionListProps> = ({ inspections, onE
   const [searchTerm, setSearchTerm] = useState('');
   
   // Filters
-  const [filterStatus, setFilterStatus] = useState<'Todos' | 'Iniciada' | 'A Finalizar'>('Todos');
+  const [filterStatus, setFilterStatus] = useState<'Todos' | 'Iniciada' | 'Aguardando' | 'Completa'>('Todos');
   const [dateStart, setDateStart] = useState('');
   const [dateEnd, setDateEnd] = useState('');
   const [filterIndication, setFilterIndication] = useState('');
   const [filterService, setFilterService] = useState('');
-  const [filterPaymentStatus, setFilterPaymentStatus] = useState<'All' | 'A pagar' | 'Pago'>('All');
+  const [filterPaymentStatus, setFilterPaymentStatus] = useState<'All' | 'A pagar' | 'Pago (Dinheiro)'>('All');
   
   // Value Range
   const [minValue, setMinValue] = useState('');
@@ -74,13 +74,14 @@ export const InspectionList: React.FC<InspectionListProps> = ({ inspections, onE
 
   // Totals Calculation
   const totalValue = filtered.reduce((acc, curr) => acc + (curr.totalValue || 0), 0);
-    const totalPaid = filtered.filter(i => i.paymentStatus === 'Pago').reduce((acc, curr) => acc + (curr.totalValue || 0), 0);
+    const totalPaid = filtered.filter(i => i.paymentStatus && i.paymentStatus.startsWith('Pago')).reduce((acc, curr) => acc + (curr.totalValue || 0), 0);
     const totalPending = filtered.filter(i => i.paymentStatus === 'A pagar').reduce((acc, curr) => acc + (curr.totalValue || 0), 0);
 
   // Counts
   const totalCount = filtered.length;
-  const completedCount = filtered.filter(i => i.status === 'A Finalizar').length;
+  const completedCount = filtered.filter(i => i.status === 'Completa').length;
   const pendingCount = filtered.filter(i => i.status === 'Iniciada').length;
+  const awaitingCount = filtered.filter(i => i.status === 'Aguardando').length;
 
   const handleExport = async (type: 'pdf' | 'excel') => {
     try {
@@ -162,18 +163,22 @@ export const InspectionList: React.FC<InspectionListProps> = ({ inspections, onE
         </div>
 
         {/* Operational Summary Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div className="bg-blue-50 p-4 rounded-xl shadow-sm border border-blue-100">
                 <p className="text-blue-600 text-xs uppercase font-bold">Total de Vistorias</p>
                 <p className="text-3xl font-bold text-blue-700">{totalCount}</p>
             </div>
             <div className="bg-green-50 p-4 rounded-xl shadow-sm border border-green-100">
-                <p className="text-green-600 text-xs uppercase font-bold">Concluídas</p>
+                <p className="text-green-600 text-xs uppercase font-bold">Completas</p>
                 <p className="text-3xl font-bold text-green-700">{completedCount}</p>
             </div>
             <div className="bg-orange-50 p-4 rounded-xl shadow-sm border border-orange-100">
-                <p className="text-orange-600 text-xs uppercase font-bold">Pendentes</p>
-                <p className="text-3xl font-bold text-orange-700">{pendingCount}</p>
+                <p className="text-orange-600 text-xs uppercase font-bold">Aguardando</p>
+                <p className="text-3xl font-bold text-orange-700">{awaitingCount}</p>
+            </div>
+            <div className="bg-gray-50 p-4 rounded-xl shadow-sm border border-gray-100">
+                <p className="text-gray-600 text-xs uppercase font-bold">Iniciadas</p>
+                <p className="text-3xl font-bold text-gray-700">{pendingCount}</p>
             </div>
         </div>
 
@@ -233,7 +238,8 @@ export const InspectionList: React.FC<InspectionListProps> = ({ inspections, onE
                             <select className="w-full px-3 py-2 border rounded-lg text-sm" value={filterStatus} onChange={(e: any) => setFilterStatus(e.target.value)}>
                                 <option value="Todos">Todos</option>
                                 <option value="Iniciada">Iniciada</option>
-                                <option value="A Finalizar">A Finalizar</option>
+                                <option value="Aguardando">Aguardando</option>
+                                <option value="Completa">Completa</option>
                             </select>
                         </div>
                         
@@ -262,7 +268,7 @@ export const InspectionList: React.FC<InspectionListProps> = ({ inspections, onE
                                       <select className="w-full px-3 py-2 border rounded-lg text-sm" value={filterPaymentStatus} onChange={(e) => setFilterPaymentStatus(e.target.value as any)}>
                                           <option value="All">Todos</option>
                                           <option value="A pagar">A pagar</option>
-                                          <option value="Pago">Pago</option>
+                                          <option value="Pago (Dinheiro)">Pago (Dinheiro)</option>
                                       </select>
                                 </div>
 
@@ -292,20 +298,15 @@ export const InspectionList: React.FC<InspectionListProps> = ({ inspections, onE
                         <div className="flex gap-2">
                             <Button
                                 onClick={() => {
-                                    if (!onBulkUpdate) {
-                                        alert('Operação não disponível');
-                                        return;
-                                    }
                                     if (selectedIds.length === 0) {
                                         alert('Nenhum item selecionado');
                                         return;
                                     }
-
-                                    if (!window.confirm(`Deseja marcar ${selectedIds.length} item(s) como Pago?`)) return;
-                                    onBulkUpdate(selectedIds, 'Pago');
+                                    if (!window.confirm(`Deseja marcar ${selectedIds.length} item(s) como Pago (Dinheiro)?`)) return;
+                                    onBulkUpdate(selectedIds, 'Pago (Dinheiro)');
                                     setSelectedIds([]);
                                 }}
-                                className="bg-amber-500 hover:bg-amber-600 text-white"
+                                className={`bg-green-600 hover:bg-green-700 ${selectedIds.length === 0 ? 'opacity-60 pointer-events-none' : ''}`}
                             >
                                 Marcar como Pagos
                             </Button>
@@ -315,20 +316,6 @@ export const InspectionList: React.FC<InspectionListProps> = ({ inspections, onE
                                 className="border-blue-200 text-blue-700 hover:bg-blue-100"
                             >
                                 Exportar Selecionados (PDF)
-                            </Button>
-                            <Button
-                                onClick={() => {
-                                    if (selectedIds.length === 0) {
-                                        alert('Nenhum item selecionado');
-                                        return;
-                                    }
-                                    if (!window.confirm(`Deseja marcar ${selectedIds.length} item(s) como Pago?`)) return;
-                                    onBulkUpdate(selectedIds, 'Pago');
-                                    setSelectedIds([]);
-                                }}
-                                className={`bg-green-600 hover:bg-green-700 ${selectedIds.length === 0 ? 'opacity-60 pointer-events-none' : ''}`}
-                            >
-                                Marcar como Pagos
                             </Button>
                         </div>
                     </div>
@@ -396,7 +383,13 @@ export const InspectionList: React.FC<InspectionListProps> = ({ inspections, onE
                                                 autoFocus
                                             >
                                                 <option value="A pagar">A pagar</option>
-                                                <option value="Pago">Pago</option>
+                                                <option value="Pago (Dinheiro)">Pago (Dinheiro)</option>
+                                                <option value="Pago (Cartão de Crédito)">Pago (Cartão de Crédito)</option>
+                                                <option value="Pago (Cartão de Débito)">Pago (Cartão de Débito)</option>
+                                                <option value="Pago (Pix)">Pago (Pix)</option>
+                                                <option value="Pago (Transferência)">Pago (Transferência)</option>
+                                                <option value="Pago (Boleto)">Pago (Boleto)</option>
+                                                <option value="Pago (Outros)">Pago (Outros)</option>
                                             </select>
                                         ) : (
                                             <span
@@ -415,11 +408,17 @@ export const InspectionList: React.FC<InspectionListProps> = ({ inspections, onE
                                 </td>
                                 <td className="p-4">
                                     <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold border ${
-                                        item.status === 'A Finalizar'
+                                        item.status === 'Completa'
                                             ? 'bg-green-50 text-green-700 border-green-100'
+                                            : item.status === 'Aguardando'
+                                            ? 'bg-orange-50 text-orange-700 border-orange-100'
                                             : 'bg-gray-100 text-gray-600 border-gray-200'
                                     }`}>
-                                        <span className={`w-1.5 h-1.5 rounded-full mr-1.5 ${item.status === 'A Finalizar' ? 'bg-green-500' : 'bg-gray-500'}`}></span>
+                                        <span className={`w-1.5 h-1.5 rounded-full mr-1.5 ${
+                                            item.status === 'Completa' ? 'bg-green-500' :
+                                            item.status === 'Aguardando' ? 'bg-orange-500' :
+                                            'bg-gray-500'
+                                        }`}></span>
                                         {item.status}
                                     </span>
                                 </td>

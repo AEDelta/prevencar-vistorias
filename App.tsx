@@ -45,8 +45,8 @@ const MOCK_INSPECTIONS: Inspection[] = [
       cep: '01001-000',
       number: '123'
     },
-    status: 'A Finalizar',
-    paymentStatus: 'Pago',
+    status: 'Completa',
+    paymentStatus: 'Pago (Dinheiro)',
     inspector: 'Pedro',
     totalValue: 250.00
   },
@@ -180,13 +180,8 @@ const App: React.FC = () => {
   };
 
   const atualizar_status_ficha = (ficha: Inspection) => {
-    // Define required fields for a ficha to be considered 'Completa'
-    const requiredClient = ficha.client && ficha.client.name && ficha.client.cpf && ficha.client.address && ficha.client.cep;
-    const requiredBasic = ficha.licensePlate && ficha.vehicleModel && (ficha.selectedServices && ficha.selectedServices.length > 0);
-    const requiredFinancial = (typeof (ficha.valor ?? ficha.totalValue) === 'number');
-    const completa = !!(requiredClient && requiredBasic && requiredFinancial);
-    ficha.status_ficha = completa ? 'Completa' : 'Incompleta';
-    return ficha.status_ficha;
+    // Now based on status
+    return ficha.status === 'Completa' ? 'Completa' : 'Incompleta';
   };
 
   const handleSaveInspection = (inspection: Inspection) => {
@@ -252,7 +247,7 @@ const App: React.FC = () => {
 
 
       // If marking as 'Pago', ensure ficha completa
-      if (newPaymentStatus === 'Pago' && inspection.status_ficha !== 'Completa') {
+      if (newPaymentStatus && newPaymentStatus.startsWith('Pago') && inspection.status !== 'Completa') {
         errors.push(`A ficha ${inspection.id} deve estar completa para registrar pagamento.`);
         return inspection;
       }
@@ -260,7 +255,7 @@ const App: React.FC = () => {
       const before = { paymentStatus: inspection.paymentStatus, valor: inspection.valor, data_pagamento: inspection.data_pagamento };
       const updated = { ...inspection, paymentStatus: newPaymentStatus as any };
       // If marking as paid, set data_pagamento
-      if (newPaymentStatus === 'Pago') {
+      if (newPaymentStatus && newPaymentStatus.startsWith('Pago')) {
         updated.data_pagamento = new Date().toISOString();
       }
       // log
@@ -295,7 +290,7 @@ const App: React.FC = () => {
 
     // Optional: check pendências (fichas com status_ficha != Completa or payments pending)
     if (options?.checkPendencias) {
-      const pend = inspections.filter(i => (i.mes_referencia === mes) && (i.status_ficha !== 'Completa' || (i.paymentStatus === 'A pagar')));
+      const pend = inspections.filter(i => (i.mes_referencia === mes) && (i.status !== 'Completa' || (i.paymentStatus === 'A pagar')));
       if (pend.length > 0) {
         if (!window.confirm(`Existem ${pend.length} pendências. Deseja prosseguir com o fechamento?`)) return;
       }

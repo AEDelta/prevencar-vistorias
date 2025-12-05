@@ -129,7 +129,7 @@ export const exportToPDF = async (
 
     // Resumo Financeiro
     const totalValue = inspections.reduce((acc, i) => acc + (i.totalValue || 0), 0);
-    const totalPago = inspections.filter(i => i.paymentStatus === 'Pago').reduce((acc, i) => acc + (i.totalValue || 0), 0);
+    const totalPago = inspections.filter(i => i.paymentStatus && i.paymentStatus.startsWith('Pago')).reduce((acc, i) => acc + (i.totalValue || 0), 0);
     const totalAPagar = inspections.filter(i => i.paymentStatus === 'A pagar').reduce((acc, i) => acc + (i.totalValue || 0), 0);
 
     pdf.setFontSize(10);

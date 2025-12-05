@@ -19,11 +19,11 @@ export enum ServiceType {
   OUTROS = 'Outros'
 }
 
-// Ficha workflow status: Iniciada (no caixa) or A Finalizar (concluída)
-export type InspectionStatus = 'Iniciada' | 'A Finalizar';
+// Ficha workflow status: Iniciada or Aguardando or Completa
+export type InspectionStatus = 'Iniciada' | 'Aguardando' | 'Completa';
 
-// Payment status: a pagar or pago
-export type PaymentStatus = 'A pagar' | 'Pago';
+// Payment status: a pagar or pago with methods
+export type PaymentStatus = 'A pagar' | 'Pago (Dinheiro)' | 'Pago (Cartão de Crédito)' | 'Pago (Cartão de Débito)' | 'Pago (Pix)' | 'Pago (Transferência)' | 'Pago (Boleto)' | 'Pago (Outros)';
 
 export enum Inspector {
   CRIS = 'Cris',
@@ -62,11 +62,8 @@ export interface Inspection {
   contact?: string; // Contact phone number
   totalValue: number;
 
-  // Ficha workflow status: 'Iniciada' (in progress/no caixa) or 'A Finalizar' (completed/concluída)
+  // Ficha workflow status
   status: InspectionStatus;
-
-  // Ficha completeness (all required fields filled)
-  status_ficha?: 'Incompleta' | 'Completa';
 
   // Financial: payment date tracking
   data_pagamento?: string; // ISO date string when payment registered
