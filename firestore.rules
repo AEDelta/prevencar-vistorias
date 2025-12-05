@@ -1,0 +1,62 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Users collection: each user document should contain `role` field
+    match /users/{userId} {
+      allow read: if request.auth != null && request.auth.uid == userId;
+      allow write: if false; // managed by admin
+    }
+
+    // Closures collection: only admin or financeiro can read/write
+    match /closures/{closureId} {
+      allow read, write: if isManager();
+
+      // Logs nested collection: only managers may write/read
+      match /logs/{logId} {
+        allow read, write: if isManager();
+      }
+    }
+
+    // Inspections: block financial edits when month is closed. Only admin may write when closed.
+    match /inspections/{docId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && (
+        // If month is not closed, allow write
+        (!monthIsClosed(getMonthForRequest()))
+        // If month is closed, allow only admin
+        || isAdmin()
+      );
+    }
+
+    // Top-level closureLogs for audit: only managers
+    match /closureLogs/{docId} {
+      allow read, write: if isManager();
+    }
+
+    function isManager() {
+      return (request.auth != null) && (
+        // Prefer custom claim `role` if present
+        (request.auth.token.role in ['admin', 'financeiro']) ||
+        // Or use users collection role
+        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin','financeiro'])
+      );
+    }
+
+    function isAdmin() {
+      return (request.auth != null) && (
+        (request.auth.token.role == 'admin') ||
+        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin')
+      );
+    }
+
+    function monthIsClosed(mes) {
+      return mes != null && get(/databases/$(database)/documents/closures/$(mes)).data.fechado == true;
+    }
+
+    function getMonthForRequest() {
+      // Prefer the new data (on create/update), fallback to existing resource
+      return request.resource != null && request.resource.data.mes_referencia != null ? request.resource.data.mes_referencia : (resource != null ? resource.data.mes_referencia : null);
+    }
+  }
+}
