@@ -15,10 +15,9 @@ interface InspectionListProps {
    currentUser?: User;
    onBulkUpdate: (ids: string[], newStatus: string) => void;
     onBulkPaymentUpdate?: (ids: string[], newPaymentStatus: string) => void;
-    fechamentosMensais?: any[];
 }
 
-export const InspectionList: React.FC<InspectionListProps> = ({ inspections, onEdit, onDelete, onCreate, currentUser, onBulkUpdate, onBulkPaymentUpdate, fechamentosMensais }) => {
+export const InspectionList: React.FC<InspectionListProps> = ({ inspections, onEdit, onDelete, onCreate, currentUser, onBulkUpdate, onBulkPaymentUpdate }) => {
   const [searchTerm, setSearchTerm] = useState('');
   
   // Filters

@@ -108,15 +108,6 @@ const App: React.FC = () => {
 
   const useFirestore = Boolean(import.meta.env.VITE_FIREBASE_PROJECT_ID);
 
-  // Fechamentos mensais and financial logs persisted locally (or via Firestore if configured)
-  const [fechamentosMensais, setFechamentosMensais] = useLocalStorage<any[]>('prevencar_fechamentos_mensais', []);
-  const [financialLogs, setFinancialLogs] = useLocalStorage<any[]>('prevencar_financial_logs', []);
-
-  const addFinancialLog = (entry: any) => {
-    const log = { id: Math.random().toString(36).substr(2,9), timestamp: new Date().toISOString(), ...entry };
-    setFinancialLogs(prev => [log, ...prev]);
-  };
-
   // If Firestore is configured, subscribe to real-time updates and use Firestore as source of truth.
   useEffect(() => {
     if (!useFirestore) return;
@@ -173,11 +164,6 @@ const App: React.FC = () => {
     }
   };
 
-  const mes_fechado = (mes: string) => {
-    if (!mes) return false;
-    const f = fechamentosMensais.find(x => x.mes === mes);
-    return !!(f && f.fechado);
-  };
 
   const atualizar_status_ficha = (ficha: Inspection) => {
     // Now based on status
@@ -194,11 +180,6 @@ const App: React.FC = () => {
     // Update ficha completeness before save
     atualizar_status_ficha(inspection);
 
-    // If attempting to change financial fields for a closed month, reject
-    if (mes_fechado(inspection.mes_referencia || '')) {
-      alert('O mês está fechado. Alterações financeiras não permitidas.');
-      return;
-    }
     
     // Ensure paymentStatus exists and defaults sensibly
     if (!inspection.paymentStatus) {
@@ -215,18 +196,9 @@ const App: React.FC = () => {
       }
     } else {
       if (editingInspection) {
-        const prevIns = inspections.find(i => i.id === inspection.id);
-        if (prevIns) {
-          const before = { paymentStatus: prevIns.paymentStatus, valor: prevIns.valor, data_pagamento: prevIns.data_pagamento };
-          const after = { paymentStatus: inspection.paymentStatus, valor: inspection.valor, data_pagamento: inspection.data_pagamento };
-          if (JSON.stringify(before) !== JSON.stringify(after)) {
-            addFinancialLog({ who: currentUser?.id || currentUser?.name, action: 'update_inspection', ficheId: inspection.id, before, after });
-          }
-        }
         setInspections(prev => prev.map(i => i.id === inspection.id ? inspection : i));
       } else {
         setInspections(prev => [inspection, ...prev]);
-        addFinancialLog({ who: currentUser?.id || currentUser?.name, action: 'create_inspection', ficheId: inspection.id, after: { paymentStatus: inspection.paymentStatus, valor: inspection.valor, data_pagamento: inspection.data_pagamento } });
       }
     }
     setCurrentView(ViewState.INSPECTION_LIST);
@@ -239,11 +211,6 @@ const App: React.FC = () => {
     const updatedInspections = inspections.map(inspection => {
       if (!ids.includes(inspection.id)) return inspection;
 
-      // If month closed, reject
-      if (mes_fechado(inspection.mes_referencia || '')) {
-        errors.push(`Mês fechado para ficha ${inspection.id}`);
-        return inspection;
-      }
 
 
       const isPaid = newPaymentStatus && newPaymentStatus !== 'A pagar';
@@ -259,8 +226,6 @@ const App: React.FC = () => {
         // If 'A pagar', set status to 'No Caixa'
         updated.status = 'No Caixa';
       }
-      // log
-      addFinancialLog({ who: currentUser?.id || currentUser?.name, action: 'bulk_update_payment_status', ficheId: inspection.id, before, after: { paymentStatus: updated.paymentStatus, status: updated.status, data_pagamento: updated.data_pagamento } });
       return updated;
     });
 
@@ -278,102 +243,6 @@ const App: React.FC = () => {
     }
   };
 
-  // Close month (administrative action) - sets fechado=true, records who and when, optionally generate snapshot
-  const handleCloseMonth = async (mes: string, options?: { checkPendencias?: boolean }) => {
-    if (!currentUser) {
-      alert('Usuário não autenticado');
-      return;
-    }
-    if (!(currentUser.role === 'admin' || currentUser.role === 'financeiro')) {
-      alert('Permissão negada');
-      return;
-    }
-
-    // Optional: check pendências (fichas com status_ficha != Completa or payments pending)
-    if (options?.checkPendencias) {
-      const pend = inspections.filter(i => (i.mes_referencia === mes) && (i.status !== 'Concluída' || (i.paymentStatus === 'A pagar')));
-      if (pend.length > 0) {
-        if (!window.confirm(`Existem ${pend.length} pendências. Deseja prosseguir com o fechamento?`)) return;
-      }
-    }
-
-    // Mark fechamento and build a per-indication financial report
-    const updated = [...fechamentosMensais];
-    const idx = updated.findIndex(f => f.mes === mes);
-    const now = new Date().toISOString();
-
-    // Build report grouped by indicação
-    const items = inspections.filter(i => i.mes_referencia === mes);
-    const byInd: { [key: string]: any } = {};
-    items.forEach(i => {
-      const indId = i.indicationId || '__SEM_INDICACAO__';
-      const indName = i.indicationName || 'Sem Indicação';
-      if (!byInd[indId]) {
-        byInd[indId] = {
-          indicationId: indId === '__SEM_INDICACAO__' ? null : indId,
-          indicationName: indName,
-          inspections: [] as any[],
-          totalCount: 0,
-          totalValue: 0,
-          toPayCount: 0,
-          toPayValue: 0,
-          paidCount: 0,
-          paidValue: 0
-        };
-      }
-
-      const value = typeof (i.valor ?? i.totalValue) === 'number' ? (i.valor ?? i.totalValue) : 0;
-      const rec = byInd[indId];
-      rec.inspections.push({ id: i.id, client: i.client?.name, value, paymentStatus: i.paymentStatus, inspector: i.inspector });
-      rec.totalCount += 1;
-      rec.totalValue += value;
-
-      const needsPay = (i.paymentStatus === 'A pagar');
-      if (needsPay) {
-        rec.toPayCount += 1;
-        rec.toPayValue += value;
-      } else {
-        rec.paidCount += 1;
-        rec.paidValue += value;
-      }
-    });
-
-    const reportSummary = Object.values(byInd).map((r: any) => ({
-      indicationId: r.indicationId,
-      indicationName: r.indicationName,
-      totalCount: r.totalCount,
-      totalValue: r.totalValue,
-      toPayCount: r.toPayCount,
-      toPayValue: r.toPayValue,
-      paidCount: r.paidCount,
-      paidValue: r.paidValue,
-      inspections: r.inspections
-    }));
-
-    const fechamentoEntry = { mes, fechado: true, data_fechamento: now, usuario_fechou: currentUser.name || currentUser.id, report: { byIndication: reportSummary } };
-
-    if (idx >= 0) {
-      updated[idx] = { ...updated[idx], ...fechamentoEntry };
-    } else {
-      updated.push(fechamentoEntry);
-    }
-    setFechamentosMensais(updated);
-
-    // Optionally create snapshot/relatório (Excel) for that month
-    try {
-      if (items.length > 0) {
-        // export detailed month inspections for download
-        // import util at top of file is available: exportToExcel
-        // Uncomment below to trigger automatic download
-        // exportToExcel(items as any, `fechamento_${mes}.xlsx`);
-      }
-    } catch (err) {
-      console.error('Erro ao gerar snapshot do mês', err);
-    }
-
-    addFinancialLog({ who: currentUser.id || currentUser.name, action: 'fechar_mes', mes, data_fechamento: now, reportSummary });
-    alert(`Mês ${mes} marcado como fechado. Relatório por indicação gerado.`);
-  };
 
 
   const handleBulkUpdateStatus = (ids: string[], newStatus: string) => {
@@ -458,7 +327,6 @@ const App: React.FC = () => {
               currentUser={currentUser}
               onBulkUpdate={handleBulkUpdateStatus}
               onBulkPaymentUpdate={handleBulkUpdatePaymentStatus}
-              fechamentosMensais={fechamentosMensais}
             />
           </Layout>
         );
@@ -477,7 +345,7 @@ const App: React.FC = () => {
       case ViewState.MANAGEMENT:
         return (
           <Layout currentView={currentView} changeView={setCurrentView} logout={handleLogout} currentUser={currentUser}>
-            <Management 
+            <Management
                 currentUser={currentUser}
                 // Pass Data
                 users={users}
@@ -490,9 +358,6 @@ const App: React.FC = () => {
                 onDeleteIndication={handleDeleteIndication}
                 onSaveService={handleSaveService}
                 onDeleteService={handleDeleteService}
-              onCloseMonth={handleCloseMonth}
-              fechamentosMensais={fechamentosMensais}
-              onGetFechamentos={( ) => fechamentosMensais}
             />
           </Layout>
         );

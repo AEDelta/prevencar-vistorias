@@ -73,24 +73,6 @@ export interface Inspection {
   valor?: number; // explicit financial value (can override totalValue)
 }
 
-export interface FechamentoMensal {
-  mes: string; // 'YYYY-MM'
-  fechado: boolean;
-  data_fechamento?: string; // ISO date
-  usuario_fechou?: string; // user id or name
-  report?: {
-    byIndication: Array<{
-      indicationId: string;
-      indicationName: string;
-      totalCount: number;
-      paidCount: number;
-      toPayCount: number;
-      paidValue: number;
-      toPayValue: number;
-      totalValue: number;
-    }>;
-  };
-}
 
 export interface User {
   id: string;

@@ -57,9 +57,6 @@ interface ManagementProps {
     onDeleteIndication: (id: string) => void;
     onSaveService: (service: ServiceItem) => void;
     onDeleteService: (id: string) => void;
-    onCloseMonth?: (mes: string, options?: { checkPendencias?: boolean }) => void;
-    fechamentosMensais?: any[];
-    onGetFechamentos?: () => any[];
 }
 
 // Helper for masks
@@ -93,13 +90,12 @@ const maskPhone = (value: string) => {
         .slice(0, 15);
 };
 
-export const Management: React.FC<ManagementProps> = ({ 
+export const Management: React.FC<ManagementProps> = ({
     currentUser,
     users, indications, services,
     onSaveUser, onDeleteUser,
     onSaveIndication, onDeleteIndication,
-    onSaveService, onDeleteService,
-    onCloseMonth, fechamentosMensais, onGetFechamentos
+    onSaveService, onDeleteService
 }) => {
   const [activeTab, setActiveTab] = useState<'users' | 'indications' | 'services' | 'profile'>('profile');
   const [viewMode, setViewMode] = useState<'list' | 'form'>('list');
@@ -310,59 +306,6 @@ export const Management: React.FC<ManagementProps> = ({
         )}
       </div>
 
-      {/* Admin quick month close control */}
-      {(isAdmin || isFinance) && onCloseMonth && (
-        <div className="mb-4 p-4 bg-white rounded-lg border shadow-sm">
-            <div className="flex flex-col md:flex-row items-start md:items-center gap-4">
-                <div className="flex items-center gap-3 flex-1">
-                    <label className="text-sm font-medium text-gray-700">Selecionar Mês:</label>
-                    <input id="month-close-input" type="month" className="border border-gray-300 px-3 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-blue" />
-                </div>
-                <div className="flex gap-2">
-                    <button 
-                        className="bg-brand-blue text-white px-4 py-2 rounded-lg hover:bg-blue-700 font-medium text-sm transition-colors" 
-                        onClick={() => {
-                            const el = document.getElementById('month-close-input') as HTMLInputElement | null;
-                            const mes = el?.value;
-                            if (!mes) { alert('Selecione um mês (AAAA-MM)'); return; }
-                            const formatted = mes;
-                            if (!window.confirm(`Confirma fechamento do mês ${formatted}?`)) return;
-                            onCloseMonth(formatted, { checkPendencias: true });
-                        }}
-                    >
-                        <Briefcase size={16} className="inline mr-2" /> Fechar Mês
-                    </button>
-                    <button 
-                        className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 font-medium text-sm transition-colors" 
-                        onClick={async () => {
-                            try {
-                                const el = document.getElementById('month-close-input') as HTMLInputElement | null;
-                                const mes = el?.value;
-                                if (!mes) { alert('Selecione um mês para exportar'); return; }
-                                
-                                const fechamento = fechamentosMensais?.find(f => f.mes === mes);
-                                if (!fechamento || !fechamento.report?.byIndication) {
-                                    alert('Nenhum fechamento registrado para este mês');
-                                    return;
-                                }
-                                
-                                const { exportMonthlyClosurePDF } = await import('../utils/exportUtils');
-                                await exportMonthlyClosurePDF(mes, fechamento.report.byIndication, `fechamento_${mes}.pdf`);
-                            } catch (error) {
-                                console.error('Erro ao exportar:', error);
-                                alert('Erro ao exportar relatório de fechamento');
-                            }
-                        }}
-                    >
-                        <Download size={16} className="inline mr-2" /> Exportar PDF
-                    </button>
-                </div>
-                <div className="text-sm text-gray-600 font-medium">
-                    Total de Fechamentos: <span className="text-brand-blue font-bold">{fechamentosMensais?.length || 0}</span>
-                </div>
-            </div>
-        </div>
-      )}
 
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 md:p-8 min-h-[500px]">
         
