@@ -27,7 +27,7 @@ export const InspectionList: React.FC<InspectionListProps> = ({ inspections, onE
   const [dateEnd, setDateEnd] = useState('');
   const [filterIndication, setFilterIndication] = useState('');
   const [filterService, setFilterService] = useState('');
-  const [filterPaymentStatus, setFilterPaymentStatus] = useState<'All' | 'A pagar' | 'Pago (Dinheiro)'>('All');
+  const [filterPaymentStatus, setFilterPaymentStatus] = useState<'All' | PaymentStatus>('All');
   
   // Value Range
   const [minValue, setMinValue] = useState('');

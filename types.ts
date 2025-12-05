@@ -23,7 +23,7 @@ export enum ServiceType {
 export type InspectionStatus = 'Iniciada' | 'Aguardando' | 'Completa';
 
 // Payment status: a pagar or pago with methods
-export type PaymentStatus = 'A pagar' | 'Pago (Dinheiro)' | 'Pago (Cartão de Crédito)' | 'Pago (Cartão de Débito)' | 'Pago (Pix)' | 'Pago (Transferência)' | 'Pago (Boleto)' | 'Pago (Outros)';
+export type PaymentStatus = 'A pagar' | 'Pago (Pix)' | 'Pago (Crédito)' | 'Pago (Débito)' | 'Pago (Dinheiro)';
 
 export enum Inspector {
   CRIS = 'Cris',
