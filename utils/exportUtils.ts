@@ -57,7 +57,7 @@ export const exportToExcel = (inspections: Inspection[], filename: string = 'vis
       'Indicação': inspection.indicationName || '-',
       'Inspetor': inspection.inspector || '-',
       'Valor': formatCurrency(inspection.totalValue),
-      'Forma de Pagamento': inspection.paymentMethod || '-',
+      'Pagamento': inspection.paymentStatus || '-',
       'Status': inspection.status,
       'Observações': inspection.observations || '-'
     }));
@@ -81,7 +81,7 @@ export const exportToExcel = (inspections: Inspection[], filename: string = 'vis
       { wch: 20 }, // Indicação
       { wch: 15 }, // Inspetor
       { wch: 15 }, // Valor
-      { wch: 18 }, // Forma de Pagamento
+      { wch: 18 }, // Pagamento
       { wch: 12 }, // Status
       { wch: 30 }, // Observações
     ];
@@ -160,13 +160,12 @@ export const exportToPDF = async (
       inspection.vehicleModel.substring(0, 12),
       inspection.client.name.substring(0, 12),
       inspection.inspector || '-',
-      inspection.paymentMethod || '-',
       inspection.paymentStatus || '-',
       inspection.status,
       formatCurrency(inspection.totalValue)
     ]);
 
-    const headers = ['Data', 'Placa', 'Modelo', 'Cliente', 'Inspetor', 'Forma Pagto', 'Situação', 'Status', 'Valor'];
+    const headers = ['Data', 'Placa', 'Modelo', 'Cliente', 'Inspetor', 'Pagamento', 'Status', 'Valor'];
 
     // Usar autoTable
     (pdf as any).autoTable({
@@ -194,7 +193,7 @@ export const exportToPDF = async (
       columnStyles: {
         0: { halign: 'center' },
         1: { halign: 'center', fontStyle: 'bold' },
-        8: { halign: 'right', fontStyle: 'bold' }
+        7: { halign: 'right', fontStyle: 'bold' }
       },
       bodyStyles: {
         fontSize: 7
@@ -276,7 +275,7 @@ export const exportMonthlyClosurePDF = async (
       const tableData = indication.inspections.map((insp: any) => [
         insp.client || '-',
         formatCurrency(insp.value),
-        insp.status_pagamento || insp.paymentStatus || '-'
+        insp.paymentStatus || '-'
       ]);
 
       tableData.push([
@@ -405,9 +404,7 @@ export const exportInspectionDetailToPDF = async (
     pdf.setFontSize(10);
     pdf.text(`Valor Total: ${formatCurrency(inspection.totalValue)}`, margin, yPosition);
     yPosition += 5;
-    pdf.text(`Forma de Pagamento: ${inspection.paymentMethod || '-'}`, margin, yPosition);
-    yPosition += 5;
-    pdf.text(`Status do Pagamento: ${inspection.paymentStatus || '-'}`, margin, yPosition);
+    pdf.text(`Pagamento: ${inspection.paymentStatus || '-'}`, margin, yPosition);
     yPosition += 5;
     pdf.text(`Status da Ficha: ${inspection.status}`, margin, yPosition);
     yPosition += 5;

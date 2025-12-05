@@ -1,9 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Inspection, PaymentMethod, Inspector, Indication, User, PaymentStatus } from '../types';
-// Função utilitária para calcular situação do pagamento
-function getPaymentStatus(paymentMethod: PaymentMethod | string): PaymentStatus {
-    return paymentMethod === PaymentMethod.A_PAGAR ? 'A pagar' : 'Pago';
-}
+import { Inspection, PaymentStatus, Inspector, Indication, User } from '../types';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { ArrowLeft, Save, ArrowRight, DollarSign, Send, CheckSquare, Square, Trash2, FileText, Download } from 'lucide-react';
@@ -188,7 +184,7 @@ export const InspectionForm: React.FC<InspectionFormProps> = ({
           id: formData.id || Math.random().toString(36).substr(2, 9),
           totalValue: calculateTotal(),
           status: 'A Finalizar',
-          paymentStatus: getPaymentStatus(formData.paymentMethod)
+          paymentStatus: formData.paymentStatus
       } as Inspection);
   };
 
@@ -226,7 +222,7 @@ export const InspectionForm: React.FC<InspectionFormProps> = ({
                 id: formData.id || Math.random().toString(36).substr(2, 9),
                 totalValue: calculateTotal(),
                 status: 'A Finalizar',
-                paymentStatus: getPaymentStatus(formData.paymentMethod)
+                paymentStatus: formData.paymentStatus
             } as Inspection);
     };
   
@@ -266,7 +262,7 @@ export const InspectionForm: React.FC<InspectionFormProps> = ({
                                     <div className="p-2 bg-gray-50 rounded col-span-2"><strong>Observações:</strong> {formData.observations || '-'}</div>
                                     <div className="p-2 bg-gray-50 rounded"><strong>Status:</strong> {formData.status}</div>
                                     <div className="p-2 bg-gray-50 rounded"><strong>Total:</strong> R$ {formData.totalValue?.toFixed(2)}</div>
-                                    <div className="p-2 bg-gray-50 rounded"><strong>Situação do Pagamento:</strong> {getPaymentStatus(formData.paymentMethod)}</div>
+                                    <div className="p-2 bg-gray-50 rounded"><strong>Pagamento:</strong> {formData.paymentStatus}</div>
                             </div>
                             <div className="flex gap-3 mt-6">
                                 <Button onClick={handleExportDetail} variant="outline" className="flex-1">
@@ -498,21 +494,17 @@ export const InspectionForm: React.FC<InspectionFormProps> = ({
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
                         <div className="flex flex-col mb-4">
-                            <label className="text-sm font-semibold text-brand-blue mb-1">Forma de Pagamento</label>
+                            <label className="text-sm font-semibold text-brand-blue mb-1">Pagamento</label>
                             <select
                                 className="border-2 border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-blue"
-                                value={formData.paymentMethod || ''}
-                                onChange={e => handleChange('paymentMethod', e.target.value)}
+                                value={formData.paymentStatus || ''}
+                                onChange={e => handleChange('paymentStatus', e.target.value)}
                                 required
                             >
                                 <option value="">Selecione...</option>
-                                {Object.values(PaymentMethod).map(pm => (
-                                <option key={pm} value={pm}>{pm}</option>
-                                ))}
+                                <option value="A pagar">A pagar</option>
+                                <option value="Pago">Pago</option>
                             </select>
-                            <div className="mt-2 text-xs text-gray-600">
-                              <strong>Situação do Pagamento:</strong> {getPaymentStatus(formData.paymentMethod)}
-                            </div>
                         </div>
 
                         <Input

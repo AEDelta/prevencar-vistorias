@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { TestPage } from './views/TestPage';
-import { ViewState, User, Indication, ServiceItem, Inspection, Role, PaymentMethod } from './types';
+import { ViewState, User, Indication, ServiceItem, Inspection, Role, PaymentStatus } from './types';
 import { collection, query, onSnapshot, orderBy, deleteDoc, doc, setDoc, addDoc } from 'firebase/firestore';
 import { db } from './firebase';
 import { Login } from './views/Login';
@@ -45,10 +45,9 @@ const MOCK_INSPECTIONS: Inspection[] = [
       cep: '01001-000',
       number: '123'
     },
-    status: 'Concluída',
-    paymentStatus: 'Recebido',
+    status: 'A Finalizar',
+    paymentStatus: 'Pago',
     inspector: 'Pedro',
-    paymentMethod: 'Pix',
     totalValue: 250.00
   },
   {
@@ -64,11 +63,11 @@ const MOCK_INSPECTIONS: Inspection[] = [
       cep: '01311-000',
       number: '900'
     },
-    status: 'Pendente',
-    paymentStatus: 'Pendente',
+    status: 'Iniciada',
+    paymentStatus: 'A pagar',
     totalValue: 150.00
   }
-] as any[]; 
+] as Inspection[];
 
 // --- HOOK FOR PERSISTENCE ---
 function useLocalStorage<T>(key: string, initialValue: T): [T, React.Dispatch<React.SetStateAction<T>>] {
@@ -208,7 +207,7 @@ const App: React.FC = () => {
     
     // Ensure paymentStatus exists and defaults sensibly
     if (!inspection.paymentStatus) {
-      inspection.paymentStatus = inspection.paymentMethod === PaymentMethod.A_PAGAR ? 'A pagar' : 'Pago';
+      inspection.paymentStatus = 'A pagar';
     }
     if (useFirestore) {
       const inspectionsCol = collection(db, 'inspections');
@@ -251,11 +250,6 @@ const App: React.FC = () => {
         return inspection;
       }
 
-      // Only allow marking as 'Pago' if paymentMethod is 'A Pagar'
-      if (newPaymentStatus === 'Pago' && inspection.paymentMethod !== PaymentMethod.A_PAGAR) {
-        errors.push(`A ficha ${inspection.id} não tem forma de pagamento "A Pagar", não pode ser marcada como paga.`);
-        return inspection;
-      }
 
       // If marking as 'Pago', ensure ficha completa
       if (newPaymentStatus === 'Pago' && inspection.status_ficha !== 'Completa') {

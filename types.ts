@@ -19,14 +19,6 @@ export enum ServiceType {
   OUTROS = 'Outros'
 }
 
-export enum PaymentMethod {
-   CREDITO = 'Crédito',
-   DEBITO = 'Débito',
-   DINHEIRO = 'Dinheiro',
-   PIX = 'Pix',
-   A_PAGAR = 'A Pagar'
-}
-
 // Ficha workflow status: Iniciada (no caixa) or A Finalizar (concluída)
 export type InspectionStatus = 'Iniciada' | 'A Finalizar';
 
@@ -65,19 +57,18 @@ export interface Inspection {
   observations?: string;
 
   // Step 2 Data
-  paymentMethod?: PaymentMethod;
+  paymentStatus?: PaymentStatus; // 'A Pagar' or 'Pago'
   nfe?: string;
   contact?: string; // Contact phone number
   totalValue: number;
-  
+
   // Ficha workflow status: 'Iniciada' (in progress/no caixa) or 'A Finalizar' (completed/concluída)
   status: InspectionStatus;
-  
+
   // Ficha completeness (all required fields filled)
   status_ficha?: 'Incompleta' | 'Completa';
-  
-  // Financial: payment and date tracking
-  paymentStatus?: PaymentStatus; // 'A pagar' or 'Pago'
+
+  // Financial: payment date tracking
   data_pagamento?: string; // ISO date string when payment registered
   
   // Financial audit fields

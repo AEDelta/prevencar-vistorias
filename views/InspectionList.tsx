@@ -1,9 +1,5 @@
 import React, { useState } from 'react';
-import { Inspection, ViewState, User, PaymentMethod, PaymentStatus } from '../types';
-// Função utilitária para calcular situação do pagamento
-function getPaymentStatus(paymentMethod: PaymentMethod | string): PaymentStatus {
-    return paymentMethod === PaymentMethod.A_PAGAR ? 'A pagar' : 'Pago';
-}
+import { Inspection, ViewState, User, PaymentStatus } from '../types';
 import { Button } from '../components/ui/Button';
 import { Edit2, Trash2, Search, Plus, Eye, FileText, Download, Filter, X } from 'lucide-react';
 import { InspectionForm } from './InspectionForm';
@@ -31,8 +27,7 @@ export const InspectionList: React.FC<InspectionListProps> = ({ inspections, onE
   const [dateEnd, setDateEnd] = useState('');
   const [filterIndication, setFilterIndication] = useState('');
   const [filterService, setFilterService] = useState('');
-  const [filterPayment, setFilterPayment] = useState('');
-    const [filterPaymentStatus, setFilterPaymentStatus] = useState<'All' | 'A pagar' | 'Pago'>('All');
+  const [filterPaymentStatus, setFilterPaymentStatus] = useState<'All' | 'A pagar' | 'Pago'>('All');
   
   // Value Range
   const [minValue, setMinValue] = useState('');
@@ -41,6 +36,7 @@ export const InspectionList: React.FC<InspectionListProps> = ({ inspections, onE
   const [showFilters, setShowFilters] = useState(false);
   const [viewOnlyItem, setViewOnlyItem] = useState<Inspection | null>(null);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [editingPaymentId, setEditingPaymentId] = useState<string | null>(null);
 
   const filtered = inspections.filter(i => {
     // Text Search
@@ -64,11 +60,8 @@ export const InspectionList: React.FC<InspectionListProps> = ({ inspections, onE
     // Service Filter
     const matchesService = !filterService || i.selectedServices.includes(filterService);
 
-    // Payment Filter
-    const matchesPayment = !filterPayment || i.paymentMethod === filterPayment;
-
     // Payment Status Filter
-    const matchesPaymentStatus = filterPaymentStatus === 'All' || getPaymentStatus(i.paymentMethod) === filterPaymentStatus;
+    const matchesPaymentStatus = filterPaymentStatus === 'All' || i.paymentStatus === filterPaymentStatus;
 
     // Value Range
     const val = i.totalValue || 0;
@@ -76,13 +69,13 @@ export const InspectionList: React.FC<InspectionListProps> = ({ inspections, onE
     const max = maxValue ? parseFloat(maxValue) : Infinity;
     const matchesValue = val >= min && val <= max;
     
-    return matchesSearch && matchesStatus && matchesDate && matchesIndication && matchesService && matchesValue && matchesPayment && matchesPaymentStatus;
+    return matchesSearch && matchesStatus && matchesDate && matchesIndication && matchesService && matchesValue && matchesPaymentStatus;
   });
 
   // Totals Calculation
   const totalValue = filtered.reduce((acc, curr) => acc + (curr.totalValue || 0), 0);
-    const totalPaid = filtered.filter(i => getPaymentStatus(i.paymentMethod) === 'Pago').reduce((acc, curr) => acc + (curr.totalValue || 0), 0);
-    const totalPending = filtered.filter(i => getPaymentStatus(i.paymentMethod) === 'A pagar').reduce((acc, curr) => acc + (curr.totalValue || 0), 0);
+    const totalPaid = filtered.filter(i => i.paymentStatus === 'Pago').reduce((acc, curr) => acc + (curr.totalValue || 0), 0);
+    const totalPending = filtered.filter(i => i.paymentStatus === 'A pagar').reduce((acc, curr) => acc + (curr.totalValue || 0), 0);
 
   // Counts
   const totalCount = filtered.length;
@@ -134,7 +127,6 @@ export const InspectionList: React.FC<InspectionListProps> = ({ inspections, onE
       setDateEnd('');
       setFilterIndication('');
       setFilterService('');
-      setFilterPayment('');
       setMinValue('');
       setMaxValue('');
   };
@@ -263,14 +255,6 @@ export const InspectionList: React.FC<InspectionListProps> = ({ inspections, onE
                             </select>
                         </div>
                         
-                        {/* Payment Method */}
-                        <div className="space-y-1">
-                             <label className="text-xs font-bold text-gray-500">Forma de Pagamento</label>
-                             <select className="w-full px-3 py-2 border rounded-lg text-sm" value={filterPayment} onChange={(e) => setFilterPayment(e.target.value)}>
-                                <option value="">Todas</option>
-                                {Object.values(PaymentMethod).map(pm => <option key={pm} value={pm}>{pm}</option>)}
-                            </select>
-                        </div>
 
                                 {/* Payment Status */}
                                 <div className="space-y-1">
@@ -307,49 +291,23 @@ export const InspectionList: React.FC<InspectionListProps> = ({ inspections, onE
                         </div>
                         <div className="flex gap-2">
                             <Button
-                                onClick={() => setSelectedIds(filtered.filter(i => i.paymentMethod === PaymentMethod.A_PAGAR && (i.paymentStatus || 'A pagar') !== 'Pago').map(i => i.id))}
-                                variant="outline"
-                                className="border-green-200 text-green-700 hover:bg-green-100"
-                            >
-                                Selecionar Todos 'A Pagar'
-                            </Button>
-                            <Button
                                 onClick={() => {
-                                    if (!onBulkPaymentUpdate) {
-                                        alert('Operação de pagamento não disponível');
+                                    if (!onBulkUpdate) {
+                                        alert('Operação não disponível');
                                         return;
                                     }
                                     if (selectedIds.length === 0) {
                                         alert('Nenhum item selecionado');
                                         return;
                                     }
-                                    
-                                    // Validate: all selected items must have paymentMethod === 'A Pagar'
-                                    const withoutAPagar = selectedIds.filter(id => {
-                                        const item = inspections.find(i => i.id === id);
-                                        return item && item.paymentMethod !== PaymentMethod.A_PAGAR;
-                                    });
-                                    if (withoutAPagar.length > 0) {
-                                        alert(`${withoutAPagar.length} ficha(s) selecionada(s) não tem forma de pagamento "A Pagar". Apenas fichas com "A Pagar" podem ser marcadas como pagas.`);
-                                        return;
-                                    }
-                                    
-                                    if (!window.confirm(`Deseja marcar ${selectedIds.length} pagamento(s) como Pago?`)) return;
-                                    // quick front-end check for month closure
-                                    const closed = (idList: string[]) => idList.some(id => {
-                                        const it = inspections.find(x => x.id === id);
-                                        if (!it) return false;
-                                        const mes = it.mes_referencia;
-                                        const f = (fechamentosMensais || []).find(x => x.mes === mes);
-                                        return !!(f && f.fechado);
-                                    });
-                                    if (closed(selectedIds)) { alert('Algum mês está fechado. Operação cancelada.'); return; }
-                                    onBulkPaymentUpdate(selectedIds, 'Pago');
+
+                                    if (!window.confirm(`Deseja marcar ${selectedIds.length} item(s) como Pago?`)) return;
+                                    onBulkUpdate(selectedIds, 'Pago');
                                     setSelectedIds([]);
                                 }}
                                 className="bg-amber-500 hover:bg-amber-600 text-white"
                             >
-                                Marcar Pagamentos como Pagos
+                                Marcar como Pagos
                             </Button>
                             <Button
                                 onClick={handleExportSelectedPDF}
@@ -388,7 +346,6 @@ export const InspectionList: React.FC<InspectionListProps> = ({ inspections, onE
                             <th className="p-4">Vistoriador</th>
                             <th className="p-4">Pagamento</th>
                             <th className="p-4">Valor</th>
-                            <th className="p-4">Situação Pagamento</th>
                             <th className="p-4">Status</th>
                             <th className="p-4 text-center">
                                 <input
@@ -424,16 +381,37 @@ export const InspectionList: React.FC<InspectionListProps> = ({ inspections, onE
                                     {item.indicationName && <div className="text-xs text-brand-blue bg-blue-50 px-2 py-0.5 rounded-full inline-block mt-1">Ind: {item.indicationName}</div>}
                                 </td>
                                 <td className="p-4 text-sm text-gray-600">{item.inspector || '-'}</td>
-                                <td className="p-4 text-sm text-gray-600">{item.paymentMethod || '-'}</td>
+                                <td className="p-4 text-sm text-gray-600">
+                                    {(currentUser?.role === 'admin' || currentUser?.role === 'financeiro') ? (
+                                        editingPaymentId === item.id ? (
+                                            <select
+                                                className="w-full px-2 py-1 border rounded text-xs"
+                                                value={item.paymentStatus || ''}
+                                                onChange={(e) => {
+                                                    const newStatus = e.target.value as PaymentStatus;
+                                                    onBulkUpdate([item.id], newStatus);
+                                                    setEditingPaymentId(null);
+                                                }}
+                                                onBlur={() => setEditingPaymentId(null)}
+                                                autoFocus
+                                            >
+                                                <option value="A pagar">A pagar</option>
+                                                <option value="Pago">Pago</option>
+                                            </select>
+                                        ) : (
+                                            <span
+                                                className="cursor-pointer underline text-blue-600"
+                                                onClick={() => setEditingPaymentId(item.id)}
+                                            >
+                                                {item.paymentStatus || '-'}
+                                            </span>
+                                        )
+                                    ) : (
+                                        item.paymentStatus || '-'
+                                    )}
+                                </td>
                                 <td className="p-4 text-sm font-bold text-gray-700">
                                     {isVistoriador ? 'R$ ***' : formatCurrency(item.totalValue)}
-                                </td>
-                                <td className="p-4">
-                                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${
-                                        (getPaymentStatus(item.paymentMethod) === 'Pago') ? 'bg-green-50 text-green-700 border-green-100' : 'bg-gray-100 text-gray-600 border-gray-200'
-                                    }`}>
-                                        {getPaymentStatus(item.paymentMethod)}
-                                    </span>
                                 </td>
                                 <td className="p-4">
                                     <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold border ${
@@ -450,8 +428,6 @@ export const InspectionList: React.FC<InspectionListProps> = ({ inspections, onE
                                         <input
                                             type="checkbox"
                                             checked={selectedIds.includes(item.id)}
-                                            disabled={item.paymentMethod !== PaymentMethod.A_PAGAR}
-                                            title={item.paymentMethod !== PaymentMethod.A_PAGAR ? 'Apenas fichas com forma de pagamento "A Pagar" podem ser marcadas como pagas' : ''}
                                             onChange={(e) => {
                                                 if (e.target.checked) {
                                                     setSelectedIds([...selectedIds, item.id]);
@@ -459,7 +435,7 @@ export const InspectionList: React.FC<InspectionListProps> = ({ inspections, onE
                                                     setSelectedIds(selectedIds.filter(id => id !== item.id));
                                                 }
                                             }}
-                                            className="w-4 h-4 text-brand-blue bg-gray-100 border-gray-300 rounded focus:ring-brand-blue focus:ring-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                                            className="w-4 h-4 text-brand-blue bg-gray-100 border-gray-300 rounded focus:ring-brand-blue focus:ring-2"
                                         />
                                     )}
                                 </td>
@@ -504,7 +480,7 @@ export const InspectionList: React.FC<InspectionListProps> = ({ inspections, onE
                             </tr>
                         )) : (
                             <tr>
-                                <td colSpan={9} className="p-12 text-center">
+                                <td colSpan={8} className="p-12 text-center">
                                     <div className="flex flex-col items-center justify-center text-gray-400">
                                         <Search size={48} className="mb-4 opacity-20" />
                                         <p className="text-lg font-medium text-gray-500">Nenhum resultado encontrado</p>
