@@ -46,6 +46,7 @@ const MOCK_INSPECTIONS: Inspection[] = [
       number: '123'
     },
     status: 'Concluída',
+    paymentStatus: 'Recebido',
     inspector: 'Pedro',
     paymentMethod: 'Pix',
     totalValue: 250.00
@@ -64,6 +65,7 @@ const MOCK_INSPECTIONS: Inspection[] = [
       number: '900'
     },
     status: 'Pendente',
+    paymentStatus: 'Pendente',
     totalValue: 150.00
   }
 ] as any[]; 
@@ -106,6 +108,15 @@ const App: React.FC = () => {
   const [editingInspection, setEditingInspection] = useState<Inspection | null>(null);
 
   const useFirestore = Boolean(import.meta.env.VITE_FIREBASE_PROJECT_ID);
+
+  // Fechamentos mensais and financial logs persisted locally (or via Firestore if configured)
+  const [fechamentosMensais, setFechamentosMensais] = useLocalStorage<any[]>('prevencar_fechamentos_mensais', []);
+  const [financialLogs, setFinancialLogs] = useLocalStorage<any[]>('prevencar_financial_logs', []);
+
+  const addFinancialLog = (entry: any) => {
+    const log = { id: Math.random().toString(36).substr(2,9), timestamp: new Date().toISOString(), ...entry };
+    setFinancialLogs(prev => [log, ...prev]);
+  };
 
   // If Firestore is configured, subscribe to real-time updates and use Firestore as source of truth.
   useEffect(() => {
@@ -163,7 +174,49 @@ const App: React.FC = () => {
     }
   };
 
+  const mes_fechado = (mes: string) => {
+    if (!mes) return false;
+    const f = fechamentosMensais.find(x => x.mes === mes);
+    return !!(f && f.fechado);
+  };
+
+  const atualizar_status_ficha = (ficha: Inspection) => {
+    // Define required fields for a ficha to be considered 'Completa'
+    const requiredClient = ficha.client && ficha.client.name && ficha.client.cpf && ficha.client.address && ficha.client.cep;
+    const requiredBasic = ficha.licensePlate && ficha.vehicleModel && (ficha.selectedServices && ficha.selectedServices.length > 0);
+    const requiredFinancial = (typeof (ficha.valor ?? ficha.totalValue) === 'number');
+    const completa = !!(requiredClient && requiredBasic && requiredFinancial);
+    ficha.status_ficha = completa ? 'Completa' : 'Incompleta';
+    return ficha.status_ficha;
+  };
+
   const handleSaveInspection = (inspection: Inspection) => {
+    // Ensure paymentStatus exists and defaults sensibly
+    if (!inspection.paymentStatus) {
+      inspection.paymentStatus = inspection.paymentMethod === PaymentMethod.A_PAGAR ? 'Pendente' : 'Recebido';
+    }
+    // Ensure mes_referencia exists: derive from date if missing
+    if (!inspection.mes_referencia && inspection.date) {
+      const d = new Date(inspection.date);
+      inspection.mes_referencia = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+    }
+
+    // Update ficha completeness before save
+    atualizar_status_ficha(inspection);
+
+    // If attempting to change financial fields for a closed month, reject
+    if (mes_fechado(inspection.mes_referencia || '')) {
+      // Do not allow saving any financial write operations
+      // We'll allow saving non-financial edits but reject changes that touch payment fields
+      // For simplicity, reject save if payment-related fields are present/changed
+      // (Client code should catch and show message)
+      alert('O mês está fechado. Alterações financeiras não permitidas.');
+      return;
+    }
+    // Ensure paymentStatus exists and defaults sensibly
+    if (!inspection.paymentStatus) {
+      inspection.paymentStatus = inspection.paymentMethod === PaymentMethod.A_PAGAR ? 'Pendente' : 'Recebido';
+    }
     if (useFirestore) {
       const inspectionsCol = collection(db, 'inspections');
       if (inspection.id) {
@@ -175,12 +228,128 @@ const App: React.FC = () => {
       }
     } else {
       if (editingInspection) {
+        const prevIns = inspections.find(i => i.id === inspection.id);
+        if (prevIns) {
+          const before = { paymentStatus: prevIns.paymentStatus, status_pagamento: prevIns.status_pagamento, forma_pagamento: prevIns.forma_pagamento, valor: prevIns.valor };
+          const after = { paymentStatus: inspection.paymentStatus, status_pagamento: inspection.status_pagamento, forma_pagamento: inspection.forma_pagamento, valor: inspection.valor };
+          if (JSON.stringify(before) !== JSON.stringify(after)) {
+            addFinancialLog({ who: currentUser?.id || currentUser?.name, action: 'update_inspection', ficheId: inspection.id, before, after });
+          }
+        }
         setInspections(prev => prev.map(i => i.id === inspection.id ? inspection : i));
       } else {
         setInspections(prev => [inspection, ...prev]);
+        addFinancialLog({ who: currentUser?.id || currentUser?.name, action: 'create_inspection', ficheId: inspection.id, after: { paymentStatus: inspection.paymentStatus, status_pagamento: inspection.status_pagamento, forma_pagamento: inspection.forma_pagamento, valor: inspection.valor } });
       }
     }
     setCurrentView(ViewState.INSPECTION_LIST);
+  };
+
+  // Bulk update payment status (only paymentStatus, not inspection status)
+  const handleBulkUpdatePaymentStatus = (ids: string[], newPaymentStatus: string) => {
+    // Validate month closure and ficha completeness for each
+    const errors: string[] = [];
+    const updatedInspections = inspections.map(inspection => {
+      if (!ids.includes(inspection.id)) return inspection;
+
+      // If month closed, reject
+      if (mes_fechado(inspection.mes_referencia || '')) {
+        errors.push(`Mês fechado para ficha ${inspection.id}`);
+        return inspection;
+      }
+
+      // If marking as 'Pago' (or 'Recebido'), ensure ficha completa
+      if (newPaymentStatus === 'Recebido' && inspection.status_ficha !== 'Completa') {
+        errors.push(`A ficha ${inspection.id} deve estar completa para registrar pagamento.`);
+        return inspection;
+      }
+
+      const before = { paymentStatus: inspection.paymentStatus, status_pagamento: inspection.status_pagamento, forma_pagamento: inspection.forma_pagamento, valor: inspection.valor };
+      const updated = { ...inspection, paymentStatus: newPaymentStatus as any };
+      // If marking as received, set status_pagamento and data_pagamento
+      if (newPaymentStatus === 'Recebido') {
+        updated.status_pagamento = 'Pago';
+        updated.data_pagamento = new Date().toISOString();
+      }
+      // log
+      addFinancialLog({ who: currentUser?.id || currentUser?.name, action: 'bulk_update_payment_status', ficheId: inspection.id, before, after: { paymentStatus: updated.paymentStatus, status_pagamento: updated.status_pagamento } });
+      return updated;
+    });
+
+    if (errors.length > 0) {
+      alert(errors.join('\n'));
+    }
+
+    if (useFirestore) {
+      ids.forEach(id => {
+        const ins = updatedInspections.find(i => i.id === id);
+        if (ins) setDoc(doc(db, 'inspections', id), { ...ins }).catch(err => console.error('Erro ao atualizar paymentStatus no Firestore', err));
+      });
+    } else {
+      setInspections(updatedInspections);
+    }
+  };
+
+  // Close month (administrative action) - sets fechado=true, records who and when, optionally generate snapshot
+  const handleCloseMonth = async (mes: string, options?: { checkPendencias?: boolean }) => {
+    if (!currentUser) {
+      alert('Usuário não autenticado');
+      return;
+    }
+    if (!(currentUser.role === 'admin' || currentUser.role === 'financeiro')) {
+      alert('Permissão negada');
+      return;
+    }
+
+    // Optional: check pendências (fichas com status_ficha != Completa or payments pending)
+    if (options?.checkPendencias) {
+      const pend = inspections.filter(i => (i.mes_referencia === mes) && (i.status_ficha !== 'Completa' || (i.status_pagamento === 'A pagar' || (i.paymentStatus === 'Pendente'))));
+      if (pend.length > 0) {
+        if (!window.confirm(`Existem ${pend.length} pendências. Deseja prosseguir com o fechamento?`)) return;
+      }
+    }
+
+    // Mark fechamento
+    const updated = [...fechamentosMensais];
+    const idx = updated.findIndex(f => f.mes === mes);
+    const now = new Date().toISOString();
+    if (idx >= 0) {
+      updated[idx] = { ...updated[idx], fechado: true, data_fechamento: now, usuario_fechou: currentUser.name || currentUser.id };
+    } else {
+      updated.push({ mes, fechado: true, data_fechamento: now, usuario_fechou: currentUser.name || currentUser.id });
+    }
+    setFechamentosMensais(updated);
+
+    // Create snapshot/relatório (Excel) for that month
+    try {
+      const items = inspections.filter(i => i.mes_referencia === mes);
+      if (items.length > 0) {
+        // Use existing export util to generate excel report
+        // exportToExcel(items, `fechamento_${mes}.xlsx`); // optional download
+      }
+    } catch (err) {
+      console.error('Erro ao gerar snapshot do mês', err);
+    }
+
+    addFinancialLog({ who: currentUser.id || currentUser.name, action: 'fechar_mes', mes, data_fechamento: now });
+    alert(`Mês ${mes} marcado como fechado.`);
+  };
+
+  const handleBulkUpdatePaymentStatus = (ids: string[], newPaymentStatus: string) => {
+    const updatedInspections = inspections.map(inspection =>
+      ids.includes(inspection.id) ? { ...inspection, paymentStatus: newPaymentStatus as any } : inspection
+    );
+
+    if (useFirestore) {
+      ids.forEach(id => {
+        const inspection = inspections.find(i => i.id === id);
+        if (inspection) {
+          setDoc(doc(db, 'inspections', id), { ...inspection, paymentStatus: newPaymentStatus }).catch(err => console.error('Erro ao atualizar paymentStatus no Firestore', err));
+        }
+      });
+    } else {
+      setInspections(updatedInspections);
+    }
   };
 
   const handleBulkUpdateStatus = (ids: string[], newStatus: string) => {
@@ -264,6 +433,8 @@ const App: React.FC = () => {
               onCreate={handleStartNewInspection}
               currentUser={currentUser}
               onBulkUpdate={handleBulkUpdateStatus}
+              onBulkPaymentUpdate={handleBulkUpdatePaymentStatus}
+              fechamentosMensais={fechamentosMensais}
             />
           </Layout>
         );
@@ -295,6 +466,9 @@ const App: React.FC = () => {
                 onDeleteIndication={handleDeleteIndication}
                 onSaveService={handleSaveService}
                 onDeleteService={handleDeleteService}
+              onCloseMonth={handleCloseMonth}
+              fechamentosMensais={fechamentosMensais}
+              onGetFechamentos={( ) => fechamentosMensais}
             />
           </Layout>
         );

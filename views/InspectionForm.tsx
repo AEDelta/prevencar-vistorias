@@ -80,9 +80,9 @@ export const InspectionForm: React.FC<InspectionFormProps> = ({
   useEffect(() => {
     if (inspectionToEdit) {
       setFormData(inspectionToEdit);
-    } else if (currentUser?.role === 'vistoriador') {
-      const firstName = currentUser.name.split(' ')[0];
-      setFormData(prev => ({ ...prev, inspector: firstName }));
+        } else if (currentUser) {
+            const firstName = currentUser.name.split(' ')[0];
+            setFormData(prev => ({ ...prev, inspector: firstName }));
     }
   }, [inspectionToEdit, currentUser]);
 
@@ -136,7 +136,7 @@ export const InspectionForm: React.FC<InspectionFormProps> = ({
             client: {
                 ...prev.client!,
                 name: indication.name,
-                cpf: indication.document,
+                cpf: indication.document.replace(/\D/g, ''),
                 cep: indication.cep || '',
                 address: indication.address || '',
                 number: indication.number || ''
@@ -160,9 +160,13 @@ export const InspectionForm: React.FC<InspectionFormProps> = ({
 
   const calculateTotal = () => {
       let total = 0;
+      // If an indication is selected and it provides per-service overrides, prefer those prices
+      const indication = MOCK_INDICATIONS.find(i => i.id === formData.indicationId);
       formData.selectedServices?.forEach(sName => {
           const service = MOCK_SERVICES.find(s => s.name === sName);
-          if (service) total += service.price;
+          if (!service) return;
+          const override = indication?.servicePrices ? indication.servicePrices[service.id] : undefined;
+          total += typeof override === 'number' ? override : service.price;
       });
       return total;
   };
@@ -170,6 +174,11 @@ export const InspectionForm: React.FC<InspectionFormProps> = ({
   // Actions
   const handleSendToCashier = (e: React.FormEvent) => {
       e.preventDefault();
+      const missing = validateStep1();
+      if (missing.length > 0) {
+          alert('Preencha os campos obrigatórios antes de enviar ao caixa:\n' + missing.join('\n'));
+          return;
+      }
       onSave({
           ...formData,
           id: formData.id || Math.random().toString(36).substr(2, 9),
@@ -180,7 +189,29 @@ export const InspectionForm: React.FC<InspectionFormProps> = ({
 
   const handleFinishPayment = (e: React.FormEvent) => {
       e.preventDefault();
+      const missing = validateStep1();
+      if (missing.length > 0) {
+          alert('Preencha os campos obrigatórios antes de finalizar o pagamento:\n' + missing.join('\n'));
+          return;
+      }
       setStep(2);
+  };
+
+  // Validate required fields from Step 1
+  const validateStep1 = (): string[] => {
+      const errs: string[] = [];
+      if (!formData.vehicleModel || String(formData.vehicleModel).trim() === '') errs.push('- Modelo do veículo');
+      if (!formData.licensePlate || String(formData.licensePlate).trim() === '') errs.push('- Placa');
+      const client = formData.client || {};
+      if (!client.name || String(client.name).trim() === '') errs.push('- Nome do cliente');
+      const cpfDigits = (client.cpf || '').toString().replace(/\D/g, '');
+      if (!cpfDigits || cpfDigits.length < 11) errs.push('- CPF/CNPJ válido do cliente');
+      const cepDigits = (client.cep || '').toString().replace(/\D/g, '');
+      if (!client.address || String(client.address).trim() === '') errs.push('- Endereço');
+      if (!cepDigits || cepDigits.length !== 8) errs.push('- CEP (8 dígitos)');
+      if (!client.number || String(client.number).trim() === '') errs.push('- Número');
+      if (!formData.selectedServices || formData.selectedServices.length === 0) errs.push('- Seleção de ao menos 1 serviço');
+      return errs;
   };
 
   const handleFinalSave = (e: React.FormEvent) => {
@@ -324,7 +355,12 @@ export const InspectionForm: React.FC<InspectionFormProps> = ({
                                 {formData.selectedServices?.includes(service.name) ? <CheckSquare className="text-brand-blue"/> : <Square className="text-gray-300"/>}
                                 <div className="flex flex-col">
                                     <span className="font-medium text-gray-800">{service.name}</span>
-                                    <span className="text-xs text-green-600 font-bold">R$ {service.price.toFixed(2)}</span>
+                                    {(() => {
+                                        const indication = MOCK_INDICATIONS.find(i => i.id === formData.indicationId);
+                                        const override = indication?.servicePrices ? indication.servicePrices[service.id] : undefined;
+                                        const displayPrice = typeof override === 'number' ? override : service.price;
+                                        return <span className="text-xs text-green-600 font-bold">R$ {displayPrice.toFixed(2)}</span>;
+                                    })()}
                                 </div>
                             </div>
                         ))}

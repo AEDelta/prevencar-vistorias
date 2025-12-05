@@ -63,8 +63,25 @@ export interface Inspection {
   nfe?: string;
   contact?: string; // Contact phone number
   totalValue: number;
-
   status: 'Pendente' | 'No Caixa' | 'Concluída' | 'Pago';
+
+  // Payment status separate from inspection workflow status
+  paymentStatus?: 'Pendente' | 'Recebido' | 'Estornado';
+
+  // New requested fields for financial workflow
+  mes_referencia?: string; // 'YYYY-MM'
+  status_ficha?: 'Incompleta' | 'Completa';
+  status_pagamento?: 'A pagar' | 'Pago';
+  forma_pagamento?: string; // can duplicate paymentMethod or hold more detail
+  data_pagamento?: string; // ISO date string when payment registered
+  valor?: number; // financial value (alias for totalValue or override)
+}
+
+export interface FechamentoMensal {
+  mes: string; // 'YYYY-MM'
+  fechado: boolean;
+  data_fechamento?: string; // ISO date
+  usuario_fechou?: string; // user id or name
 }
 
 export interface User {
@@ -84,6 +101,8 @@ export interface Indication { // Renamed from Provider
   address?: string;
   cep?: string;
   number?: string;
+  // Optional per-service price overrides: key = service id, value = price
+  servicePrices?: { [serviceId: string]: number };
 }
 
 export interface ServiceItem {

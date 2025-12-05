@@ -10,8 +10,28 @@ import 'jspdf-autotable';
 
 // Export mock fallback data for InspectionForm dropdowns if needed
 export const MOCK_INDICATIONS_FALLBACK: Indication[] = [
-    { id: '1', name: 'Peças AutoSul', document: '12.345.678/0001-90', phone: '(11) 98888-7777', email: 'contato@autosul.com', cep: '01001-000', address: 'Rua Principal', number: '100' },
-    { id: '2', name: 'Mecânica Rápida', document: '98.765.432/0001-10', phone: '(11) 97777-6666', email: 'contato@mecanica.com', cep: '02002-000', address: 'Av Secundaria', number: '200' }
+    {
+        id: '1',
+        name: 'Peças AutoSul',
+        document: '12.345.678/0001-90',
+        phone: '(11) 98888-7777',
+        email: 'contato@autosul.com',
+        cep: '01001-000',
+        address: 'Rua Principal',
+        number: '100',
+        servicePrices: { '1': 95.00, '2': 240.00, '3': 140.00 }
+    },
+    {
+        id: '2',
+        name: 'Mecânica Rápida',
+        document: '98.765.432/0001-10',
+        phone: '(11) 97777-6666',
+        email: 'contato@mecanica.com',
+        cep: '02002-000',
+        address: 'Av Secundaria',
+        number: '200',
+        servicePrices: { '2': 230.00, '4': 45.00, '5': 280.00 }
+    }
 ];
 
 export const MOCK_SERVICES_FALLBACK: ServiceItem[] = [
@@ -37,6 +57,9 @@ interface ManagementProps {
     onDeleteIndication: (id: string) => void;
     onSaveService: (service: ServiceItem) => void;
     onDeleteService: (id: string) => void;
+    onCloseMonth?: (mes: string, options?: { checkPendencias?: boolean }) => void;
+    fechamentosMensais?: any[];
+    onGetFechamentos?: () => any[];
 }
 
 // Helper for masks
@@ -75,7 +98,8 @@ export const Management: React.FC<ManagementProps> = ({
     users, indications, services,
     onSaveUser, onDeleteUser,
     onSaveIndication, onDeleteIndication,
-    onSaveService, onDeleteService
+    onSaveService, onDeleteService,
+    onCloseMonth, fechamentosMensais, onGetFechamentos
 }) => {
   const [activeTab, setActiveTab] = useState<'users' | 'indications' | 'services' | 'profile'>('profile');
   const [viewMode, setViewMode] = useState<'list' | 'form'>('list');
@@ -112,7 +136,7 @@ export const Management: React.FC<ManagementProps> = ({
   const prepareCreate = (type: 'user' | 'indication' | 'service') => {
       setEditingId(null);
       if(type === 'user') setUserForm({});
-      if(type === 'indication') setIndicationForm({});
+      if(type === 'indication') setIndicationForm({ servicePrices: {} });
       if(type === 'service') setServiceForm({});
       setViewMode('form');
   };
@@ -132,6 +156,21 @@ export const Management: React.FC<ManagementProps> = ({
           if(item) setServiceForm(item);
       }
       setViewMode('form');
+  };
+
+  // Update per-service override price for the currently edited indication
+  const handleIndicationServicePriceChange = (serviceId: string, value: string) => {
+      const numeric = value === '' ? undefined : parseFloat(value);
+      setIndicationForm(prev => {
+          const sp = { ...(prev.servicePrices || {}) } as { [key: string]: number };
+          if (numeric === undefined || Number.isNaN(numeric)) {
+              // remove override if empty or invalid
+              delete sp[serviceId];
+          } else {
+              sp[serviceId] = numeric;
+          }
+          return { ...prev, servicePrices: sp };
+      });
   };
 
   const submitUser = (e: React.FormEvent) => {
@@ -270,6 +309,24 @@ export const Management: React.FC<ManagementProps> = ({
             </>
         )}
       </div>
+
+      {/* Admin quick month close control */}
+      {(isAdmin || isFinance) && onCloseMonth && (
+        <div className="mb-4 p-4 bg-white rounded-lg border">
+            <div className="flex items-center gap-3">
+                <input id="month-close-input" type="month" className="border px-2 py-1 rounded" />
+                <button className="bg-brand-blue text-white px-3 py-1 rounded" onClick={() => {
+                    const el = document.getElementById('month-close-input') as HTMLInputElement | null;
+                    const mes = el?.value;
+                    if (!mes) { alert('Selecione um mês (AAAA-MM)'); return; }
+                    const formatted = mes; // browser month input already gives YYYY-MM
+                    if (!window.confirm(`Confirma fechamento do mês ${formatted}?`)) return;
+                    onCloseMonth(formatted, { checkPendencias: true });
+                }}>Fechar Mês</button>
+                <div className="text-sm text-gray-500">Fechamentos registrados: {fechamentosMensais?.length || 0}</div>
+            </div>
+        </div>
+      )}
 
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 md:p-8 min-h-[500px]">
         
@@ -576,6 +633,32 @@ export const Management: React.FC<ManagementProps> = ({
                             placeholder="(00) 00000-0000"
                         />
                         <Input label="Email" value={indicationForm.email || ''} onChange={e => setIndicationForm({...indicationForm, email: e.target.value})} className="bg-gray-50" />
+                        {/* Per-service price overrides */}
+                        <div className="mt-4 border-t pt-4">
+                            <h4 className="text-sm font-semibold text-gray-700 mb-2">Preços por Serviço (opcional)</h4>
+                            <p className="text-xs text-gray-500 mb-3">Defina preços específicos para esta indicação. Deixe em branco para usar o preço base do serviço.</p>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                {services.map(s => {
+                                    const val = indicationForm.servicePrices ? indicationForm.servicePrices[s.id] : undefined;
+                                    return (
+                                        <div key={s.id} className="flex items-center gap-3">
+                                            <div className="flex-1 text-sm font-medium">{s.name}</div>
+                                            <div className="w-40">
+                                                <input
+                                                    type="number"
+                                                    step="0.01"
+                                                    min="0"
+                                                    className="w-full border-2 border-gray-200 rounded-lg px-3 py-2 bg-gray-50 focus:outline-none focus:ring-2 focus:ring-brand-blue"
+                                                    value={val !== undefined ? String(val) : ''}
+                                                    onChange={e => handleIndicationServicePriceChange(s.id, e.target.value)}
+                                                    placeholder="R$ 0,00"
+                                                />
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
                         
                         <div className="flex justify-between items-center pt-6">
                             {editingId ? (
