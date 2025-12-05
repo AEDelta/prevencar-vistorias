@@ -335,22 +335,6 @@ const App: React.FC = () => {
     alert(`Mês ${mes} marcado como fechado.`);
   };
 
-  const handleBulkUpdatePaymentStatus = (ids: string[], newPaymentStatus: string) => {
-    const updatedInspections = inspections.map(inspection =>
-      ids.includes(inspection.id) ? { ...inspection, paymentStatus: newPaymentStatus as any } : inspection
-    );
-
-    if (useFirestore) {
-      ids.forEach(id => {
-        const inspection = inspections.find(i => i.id === id);
-        if (inspection) {
-          setDoc(doc(db, 'inspections', id), { ...inspection, paymentStatus: newPaymentStatus }).catch(err => console.error('Erro ao atualizar paymentStatus no Firestore', err));
-        }
-      });
-    } else {
-      setInspections(updatedInspections);
-    }
-  };
 
   const handleBulkUpdateStatus = (ids: string[], newStatus: string) => {
     const updatedInspections = inspections.map(inspection =>
