@@ -3,7 +3,7 @@ import { ViewState } from '../types';
 import { ShieldCheck } from 'lucide-react';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
-import { signInWithEmailAndPassword } from 'firebase/auth';
+import { signInWithEmailAndPassword, setPersistence, browserSessionPersistence, browserLocalPersistence } from 'firebase/auth';
 import { auth } from '../firebase';
 
 interface LoginProps {
@@ -16,6 +16,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin, changeView }) => {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [rememberMe, setRememberMe] = useState(true);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -26,6 +27,9 @@ export const Login: React.FC<LoginProps> = ({ onLogin, changeView }) => {
     setLoading(true);
     setError('');
     try {
+      // Set persistence based on remember me
+      const persistence = rememberMe ? browserLocalPersistence : browserSessionPersistence;
+      await setPersistence(auth, persistence);
       await signInWithEmailAndPassword(auth, email, password);
       // Firebase will trigger onAuthStateChanged in App.tsx
     } catch (error: any) {
@@ -95,6 +99,18 @@ export const Login: React.FC<LoginProps> = ({ onLogin, changeView }) => {
                      Esqueceu a senha?
                  </button>
              </div>
+          </div>
+
+          <div className="flex items-center justify-between">
+             <label className="flex items-center text-sm text-gray-600">
+                 <input
+                     type="checkbox"
+                     checked={rememberMe}
+                     onChange={(e) => setRememberMe(e.target.checked)}
+                     className="mr-2 w-4 h-4 text-brand-blue bg-gray-100 border-gray-300 rounded focus:ring-brand-blue"
+                 />
+                 Manter logado
+             </label>
           </div>
           
           <Button type="submit" className="w-full h-14 text-lg font-bold shadow-lg shadow-red-200 mt-4 rounded-xl">
