@@ -3,7 +3,7 @@ import { TestPage } from './views/TestPage';
 import { ViewState, User, Indication, ServiceItem, Inspection, Role } from './types';
 import { collection, query, onSnapshot, orderBy, deleteDoc, doc, setDoc, addDoc, getDoc } from 'firebase/firestore';
 import { db, auth } from './firebase';
-import { onAuthStateChanged, signOut } from 'firebase/auth';
+import { onAuthStateChanged, signOut, createUserWithEmailAndPassword } from 'firebase/auth';
 import { Login } from './views/Login';
 import { ForgotPassword } from './views/ForgotPassword';
 import { Layout } from './components/Layout';
@@ -108,6 +108,34 @@ const App: React.FC = () => {
   const [editingInspection, setEditingInspection] = useState<Inspection | null>(null);
 
   const useFirestore = Boolean(import.meta.env.VITE_FIREBASE_PROJECT_ID);
+
+  // Initialize admin user if none exists
+  useEffect(() => {
+    const initializeAdmin = async () => {
+      try {
+        // Try to create admin user
+        const userCredential = await createUserWithEmailAndPassword(auth, 'admin@prevencar.com.br', 'admin123');
+        const uid = userCredential.user.uid;
+        // Create profile in Firestore
+        await setDoc(doc(db, 'users', uid), {
+          name: 'Admin Principal',
+          email: 'admin@prevencar.com.br',
+          role: 'admin'
+        });
+        console.log('Admin user created successfully');
+      } catch (error: any) {
+        if (error.code === 'auth/email-already-in-use') {
+          console.log('Admin user already exists');
+        } else {
+          console.error('Error creating admin user:', error);
+        }
+      }
+    };
+
+    if (useFirestore) {
+      initializeAdmin();
+    }
+  }, [useFirestore]);
 
   // Firebase Auth State Listener
   useEffect(() => {
