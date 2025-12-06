@@ -7,6 +7,9 @@ import { exportToExcel, exportToPDF } from '../utils/exportUtils';
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
+import { createUserWithEmailAndPassword } from 'firebase/auth';
+import { auth, db } from '../firebase';
+import { doc, setDoc } from 'firebase/firestore';
 
 // Export mock fallback data for InspectionForm dropdowns if needed
 export const MOCK_INDICATIONS_FALLBACK: Indication[] = [
@@ -169,15 +172,27 @@ export const Management: React.FC<ManagementProps> = ({
       });
   };
 
-  const submitUser = (e: React.FormEvent) => {
+  const submitUser = async (e: React.FormEvent) => {
       e.preventDefault();
-      let userToSave = { ...userForm, role: userForm.role || 'vistoriador' } as User;
-      if (editingId && !userToSave.password) {
-          const existing = users.find(u => u.id === editingId);
-          if (existing) userToSave.password = existing.password;
+      try {
+          const userData = { name: userForm.name, email: userForm.email, role: userForm.role || 'vistoriador' } as User;
+          if (editingId) {
+              // Update existing user profile in Firestore
+              await setDoc(doc(db, 'users', editingId), userData);
+              onSaveUser({ ...userData, id: editingId });
+          } else {
+              // Create new user with Firebase Auth
+              const userCredential = await createUserWithEmailAndPassword(auth, userForm.email!, userForm.password!);
+              const uid = userCredential.user.uid;
+              // Save profile to Firestore
+              await setDoc(doc(db, 'users', uid), userData);
+              onSaveUser({ ...userData, id: uid });
+          }
+          setViewMode('list');
+      } catch (error: any) {
+          console.error('Erro ao salvar usuário:', error);
+          alert(`Erro ao salvar usuário: ${error.message}`);
       }
-      onSaveUser(userToSave);
-      setViewMode('list');
   };
 
   const submitIndication = (e: React.FormEvent) => {

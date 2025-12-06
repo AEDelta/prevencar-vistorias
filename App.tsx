@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { TestPage } from './views/TestPage';
 import { ViewState, User, Indication, ServiceItem, Inspection, Role } from './types';
-import { collection, query, onSnapshot, orderBy, deleteDoc, doc, setDoc, addDoc } from 'firebase/firestore';
-import { db } from './firebase';
+import { collection, query, onSnapshot, orderBy, deleteDoc, doc, setDoc, addDoc, getDoc } from 'firebase/firestore';
+import { db, auth } from './firebase';
+import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { Login } from './views/Login';
 import { ForgotPassword } from './views/ForgotPassword';
 import { Layout } from './components/Layout';
@@ -100,13 +101,56 @@ const App: React.FC = () => {
   
   // Global State with Persistence
   const [inspections, setInspections] = useLocalStorage<Inspection[]>('prevencar_inspections', MOCK_INSPECTIONS);
-  const [users, setUsers] = useLocalStorage<User[]>('prevencar_users', INITIAL_USERS);
+  const [users, setUsers] = useState<User[]>(INITIAL_USERS);
   const [indications, setIndications] = useLocalStorage<Indication[]>('prevencar_indications', INITIAL_INDICATIONS);
   const [services, setServices] = useLocalStorage<ServiceItem[]>('prevencar_services', INITIAL_SERVICES);
 
   const [editingInspection, setEditingInspection] = useState<Inspection | null>(null);
 
   const useFirestore = Boolean(import.meta.env.VITE_FIREBASE_PROJECT_ID);
+
+  // Firebase Auth State Listener
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      if (user) {
+        // User is signed in, fetch profile from Firestore
+        try {
+          const userDoc = await getDoc(doc(db, 'users', user.uid));
+          if (userDoc.exists()) {
+            const userData = userDoc.data() as Omit<User, 'id'>;
+            setCurrentUser({ ...userData, id: user.uid });
+            setCurrentView(ViewState.HOME);
+          } else {
+            console.error('Perfil do usuário não encontrado');
+            await signOut(auth);
+          }
+        } catch (error) {
+          console.error('Erro ao buscar perfil:', error);
+          await signOut(auth);
+        }
+      } else {
+        // User is signed out
+        setCurrentUser(undefined);
+        setCurrentView(ViewState.LOGIN);
+      }
+    });
+    return unsubscribe;
+  }, []);
+
+  // Subscribe to users collection for admin
+  useEffect(() => {
+    if (!useFirestore || !currentUser || currentUser.role !== 'admin') return;
+
+    const q = query(collection(db, 'users'));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const usersList: User[] = snapshot.docs.map(d => ({ id: d.id, ...(d.data() as Omit<User, 'id'>) }));
+      setUsers(usersList);
+    }, (err) => {
+      console.error('Erro ao sincronizar usuários do Firestore', err);
+    });
+
+    return () => unsubscribe();
+  }, [useFirestore, currentUser]);
 
   // If Firestore is configured, subscribe to real-time updates and use Firestore as source of truth.
   useEffect(() => {
@@ -136,9 +180,12 @@ const App: React.FC = () => {
     setCurrentView(ViewState.HOME);
   };
 
-  const handleLogout = () => {
-    setCurrentUser(undefined);
-    setCurrentView(ViewState.LOGIN);
+  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+    } catch (error) {
+      console.error('Erro ao fazer logout:', error);
+    }
   };
 
   // --- Inspection Logic ---
@@ -268,17 +315,31 @@ const App: React.FC = () => {
   };
 
   // --- Management Logic (Global Handlers) ---
-  
+
   // Users
   const handleSaveUser = (user: User) => {
-      if (users.find(u => u.id === user.id)) {
-          setUsers(users.map(u => u.id === user.id ? user : u));
-      } else {
-          setUsers([...users, { ...user, id: Math.random().toString(36).substr(2, 9) }]);
-      }
+      // Since users are now managed via Firebase Auth and Firestore, this is handled in Management.tsx
+      // Just update local state for immediate UI update
+      setUsers(prev => {
+        const existing = prev.find(u => u.id === user.id);
+        if (existing) {
+          return prev.map(u => u.id === user.id ? user : u);
+        } else {
+          return [...prev, user];
+        }
+      });
   };
-  const handleDeleteUser = (id: string) => {
-      setUsers(prev => prev.filter(u => u.id !== id));
+  const handleDeleteUser = async (id: string) => {
+      try {
+        // Delete from Firestore
+        await deleteDoc(doc(db, 'users', id));
+        // Also delete from Auth if possible, but Firebase doesn't allow deleting other users easily
+        // For now, just remove from Firestore
+        setUsers(prev => prev.filter(u => u.id !== id));
+      } catch (error) {
+        console.error('Erro ao deletar usuário:', error);
+        alert('Erro ao deletar usuário');
+      }
   };
 
   // Indications

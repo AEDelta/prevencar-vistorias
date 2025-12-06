@@ -3,6 +3,8 @@ import { ViewState } from '../types';
 import { ShieldCheck } from 'lucide-react';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
+import { signInWithEmailAndPassword } from 'firebase/auth';
+import { auth } from '../firebase';
 
 interface LoginProps {
   onLogin: (email: string, password: string) => void;
@@ -13,19 +15,33 @@ export const Login: React.FC<LoginProps> = ({ onLogin, changeView }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email || !password) {
-      alert('Por favor, preencha email e senha.');
+      setError('Por favor, preencha email e senha.');
       return;
     }
     setLoading(true);
-    // Simulated authentication for development
-    setTimeout(() => {
+    setError('');
+    try {
+      await signInWithEmailAndPassword(auth, email, password);
+      // Firebase will trigger onAuthStateChanged in App.tsx
+    } catch (error: any) {
+      console.error('Erro no login:', error);
+      let message = 'Erro ao fazer login. Verifique suas credenciais.';
+      if (error.code === 'auth/user-not-found') {
+        message = 'Usuário não encontrado.';
+      } else if (error.code === 'auth/wrong-password') {
+        message = 'Senha incorreta.';
+      } else if (error.code === 'auth/invalid-email') {
+        message = 'Email inválido.';
+      }
+      setError(message);
+    } finally {
       setLoading(false);
-      onLogin(email, password);
-    }, 1000); // Simulate loading delay
+    }
   };
 
   return (
@@ -46,34 +62,39 @@ export const Login: React.FC<LoginProps> = ({ onLogin, changeView }) => {
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">
-          <Input 
-            label="E-mail Corporativo" 
-            type="email" 
-            placeholder="nome@prevencar.com.br" 
+          {error && (
+            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
+              {error}
+            </div>
+          )}
+          <Input
+            label="E-mail Corporativo"
+            type="email"
+            placeholder="nome@prevencar.com.br"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             className="bg-gray-50 focus:bg-white h-12"
             required
           />
           <div className="space-y-1">
-             <Input 
-                label="Senha de Acesso" 
-                type="password" 
-                placeholder="••••••••" 
+             <Input
+                label="Senha de Acesso"
+                type="password"
+                placeholder="••••••••"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 className="bg-gray-50 focus:bg-white h-12"
                 required
-            />
-            <div className="text-right">
-                <button 
-                    type="button"
-                    onClick={() => changeView(ViewState.FORGOT_PASSWORD)}
-                    className="text-xs text-gray-500 hover:text-brand-blue hover:underline font-medium transition-colors mt-1"
-                >
-                    Esqueceu a senha?
-                </button>
-            </div>
+             />
+             <div className="text-right">
+                 <button
+                     type="button"
+                     onClick={() => changeView(ViewState.FORGOT_PASSWORD)}
+                     className="text-xs text-gray-500 hover:text-brand-blue hover:underline font-medium transition-colors mt-1"
+                 >
+                     Esqueceu a senha?
+                 </button>
+             </div>
           </div>
           
           <Button type="submit" className="w-full h-14 text-lg font-bold shadow-lg shadow-red-200 mt-4 rounded-xl">
