@@ -381,7 +381,7 @@ export const InspectionList: React.FC<InspectionListProps> = ({ inspections, onE
                                                 value=""
                                                 onChange={(e) => {
                                                     const method = e.target.value;
-                                                    const newStatus = `Pago (${method})`;
+                                                    const newStatus = method;
                                                     onBulkPaymentUpdate([item.id], newStatus);
                                                     setEditingPaymentId(null);
                                                 }}

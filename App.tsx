@@ -180,7 +180,11 @@ const App: React.FC = () => {
     // Update ficha completeness before save
     atualizar_status_ficha(inspection);
 
-    
+    // Automatically advance status: Iniciada → No Caixa
+    if (inspection.status === 'Iniciada') {
+      inspection.status = 'No Caixa';
+    }
+
     // Ensure paymentStatus exists and defaults sensibly
     if (!inspection.paymentStatus) {
       inspection.paymentStatus = 'A pagar';
