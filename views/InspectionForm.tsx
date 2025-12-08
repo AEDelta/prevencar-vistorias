@@ -53,16 +53,17 @@ const maskPhone = (value: string) => {
         .slice(0, 15);
 };
 
-export const InspectionForm: React.FC<InspectionFormProps> = ({ 
-    inspectionToEdit, 
-    onSave, 
-    onCancel, 
-    onDelete, 
+export const InspectionForm: React.FC<InspectionFormProps> = ({
+    inspectionToEdit,
+    onSave,
+    onCancel,
+    onDelete,
     readOnly = false,
-    currentUser 
+    currentUser
 }) => {
-  const [step, setStep] = useState(1);
-  const [isLoadingCep, setIsLoadingCep] = useState(false);
+   const [step, setStep] = useState(1);
+   const [isLoadingCep, setIsLoadingCep] = useState(false);
+   const [isStep1Complete, setIsStep1Complete] = useState(false);
   const [formData, setFormData] = useState<Partial<Inspection>>({
     date: new Date().toISOString().split('T')[0],
     status: 'Iniciada',
@@ -86,6 +87,11 @@ export const InspectionForm: React.FC<InspectionFormProps> = ({
             setFormData(prev => ({ ...prev, inspector: firstName }));
     }
   }, [inspectionToEdit, currentUser]);
+
+  useEffect(() => {
+    const errors = validateStep1();
+    setIsStep1Complete(errors.length === 0);
+  }, [formData]);
 
   // Logic to fetch address from CEP
   const handleCepBlur = async () => {
@@ -215,11 +221,12 @@ export const InspectionForm: React.FC<InspectionFormProps> = ({
 
     const handleFinalSave = (e: React.FormEvent) => {
               e.preventDefault();
+              const finalStatus = formData.paymentStatus === 'A pagar' ? 'No Caixa' : 'Concluída';
               onSave({
                   ...formData,
                   id: formData.id || Math.random().toString(36).substr(2, 9),
                   totalValue: calculateTotal(),
-                  status: formData.status,
+                  status: finalStatus,
                   paymentStatus: formData.paymentStatus
               } as Inspection);
       };
@@ -429,12 +436,14 @@ export const InspectionForm: React.FC<InspectionFormProps> = ({
                     </div>
 
                     <div className="flex gap-2 w-full md:w-auto mt-4 md:mt-0">
-                        <Button type="button" onClick={handleSendToCashier} className="bg-orange-500 hover:bg-orange-600 flex-1 md:flex-none">
+                        <Button type="button" onClick={handleSendToCashier} className={`bg-orange-500 hover:bg-orange-600 flex-1 md:flex-none ${!isStep1Complete ? 'opacity-50 cursor-not-allowed' : ''}`} disabled={!isStep1Complete}>
                             <Send size={18} className="mr-2" /> Enviar para Caixa
                         </Button>
-                        <Button type="button" onClick={handleFinishPayment} className="flex-1 md:flex-none">
-                            Finalizar Pagamento <ArrowRight size={18} className="ml-2" />
-                        </Button>
+                        {(currentUser?.role === 'admin' || currentUser?.role === 'financeiro') && (
+                            <Button type="button" onClick={handleFinishPayment} className={`flex-1 md:flex-none ${!isStep1Complete ? 'opacity-50 cursor-not-allowed' : ''}`} disabled={!isStep1Complete}>
+                                Finalizar Pagamento <ArrowRight size={18} className="ml-2" />
+                            </Button>
+                        )}
                     </div>
                 </div>
             </form>
@@ -505,26 +514,7 @@ export const InspectionForm: React.FC<InspectionFormProps> = ({
                                 <option value="Dinheiro">Dinheiro</option>
                                 <option value="Crédito">Crédito</option>
                                 <option value="Débito">Débito</option>
-                            </select>
-                        </div>
-
-                        <div className="flex flex-col mb-4">
-                            <label className="text-sm font-semibold text-brand-blue mb-1">Status</label>
-                            <select
-                                className="border-2 border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-blue"
-                                value={formData.status || ''}
-                                onChange={e => handleChange('status', e.target.value)}
-                                required
-                            >
-                                <option value="">Selecione...</option>
-                                {formData.paymentStatus === 'A pagar' ? (
-                                    <>
-                                        <option value="No Caixa">No Caixa</option>
-                                        <option value="Pago">Pago</option>
-                                    </>
-                                ) : (
-                                    <option value="Concluída">Concluída</option>
-                                )}
+                                <option value="Pago">Pago</option>
                             </select>
                         </div>
 

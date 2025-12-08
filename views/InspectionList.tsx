@@ -21,7 +21,7 @@ export const InspectionList: React.FC<InspectionListProps> = ({ inspections, onE
   const [searchTerm, setSearchTerm] = useState('');
   
   // Filters
-  const [filterStatus, setFilterStatus] = useState<'Todos' | 'Iniciada' | 'No Caixa' | 'Concluída' | 'Pago'>('Todos');
+  const [filterStatus, setFilterStatus] = useState<'Todos' | 'Iniciada' | 'No Caixa' | 'Concluída'>('Todos');
   const [dateStart, setDateStart] = useState('');
   const [dateEnd, setDateEnd] = useState('');
   const [filterIndication, setFilterIndication] = useState('');
@@ -102,24 +102,6 @@ export const InspectionList: React.FC<InspectionListProps> = ({ inspections, onE
     }
   };
 
-    const handleExportSelectedPDF = async () => {
-        try {
-            if (selectedIds.length === 0) {
-                alert('Nenhum item selecionado para exportar');
-                return;
-            }
-            const itemsToExport = inspections.filter(i => selectedIds.includes(i.id));
-            if (itemsToExport.length === 0) {
-                alert('Nenhum item válido selecionado para exportar');
-                return;
-            }
-            const timestamp = new Date().toISOString().split('T')[0];
-            await exportToPDF(itemsToExport, `vistorias_selecionadas_${timestamp}.pdf`);
-        } catch (error) {
-            console.error('Erro ao exportar selecionados para PDF:', error);
-            alert('Erro ao exportar selecionados para PDF');
-        }
-    };
 
   const clearFilters = () => {
       setFilterStatus('Todos');
@@ -238,7 +220,6 @@ export const InspectionList: React.FC<InspectionListProps> = ({ inspections, onE
                                 <option value="Todos">Todos</option>
                                 <option value="Iniciada">Iniciada</option>
                                 <option value="No Caixa">No Caixa</option>
-                                <option value="Pago">Pago</option>
                                 <option value="Concluída">Concluída</option>
                             </select>
                         </div>
@@ -272,6 +253,7 @@ export const InspectionList: React.FC<InspectionListProps> = ({ inspections, onE
                                              <option value="Dinheiro">Dinheiro</option>
                                              <option value="Crédito">Crédito</option>
                                              <option value="Débito">Débito</option>
+                                             <option value="Pago">Pago</option>
                                       </select>
                                 </div>
 
@@ -322,7 +304,7 @@ export const InspectionList: React.FC<InspectionListProps> = ({ inspections, onE
                                         alert('Nenhum item selecionado');
                                         return;
                                     }
-                                    const methods = ['Pix', 'Dinheiro', 'Crédito', 'Débito'];
+                                    const methods = ['Pix', 'Dinheiro', 'Crédito', 'Débito', 'Pago'];
                                     const paymentMethod = window.prompt(`Qual foi a forma de pagamento?\n${methods.join('\n')}`, 'Dinheiro');
                                     if (!paymentMethod || !methods.includes(paymentMethod)) return;
                                     if (!window.confirm(`Deseja marcar ${selectedIds.length} item(s) como pago via ${paymentMethod}?`)) return;
@@ -332,13 +314,6 @@ export const InspectionList: React.FC<InspectionListProps> = ({ inspections, onE
                                 className={`bg-green-600 hover:bg-green-700 ${selectedIds.length === 0 ? 'opacity-60 pointer-events-none' : ''}`}
                             >
                                 Marcar como Pagos
-                            </Button>
-                            <Button
-                                onClick={handleExportSelectedPDF}
-                                variant="outline"
-                                className="border-blue-200 text-blue-700 hover:bg-blue-100"
-                            >
-                                Exportar Selecionados (PDF)
                             </Button>
                         </div>
                     </div>
@@ -407,6 +382,7 @@ export const InspectionList: React.FC<InspectionListProps> = ({ inspections, onE
                                                 autoFocus
                                             >
                                                 <option value="">Selecione método...</option>
+                                                {item.paymentStatus === 'A pagar' && <option value="Pago">Pago</option>}
                                                 <option value="Pix">Pix</option>
                                                 <option value="Dinheiro">Dinheiro</option>
                                                 <option value="Crédito">Crédito</option>
@@ -472,7 +448,7 @@ export const InspectionList: React.FC<InspectionListProps> = ({ inspections, onE
                                         >
                                             <Eye size={18} />
                                         </button>
-                                        {(currentUser?.role === 'admin' || currentUser?.role === 'financeiro' || (currentUser?.role === 'vistoriador' && item.status !== 'Concluída')) && (
+                                        {(currentUser?.role === 'admin' || currentUser?.role === 'financeiro' || (currentUser?.role === 'vistoriador' && (item.inspector === currentUser.name || item.status === 'Iniciada'))) && (
                                             <button 
                                                 type="button"
                                                 onClick={() => onEdit(item)} 
