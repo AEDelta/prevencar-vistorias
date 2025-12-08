@@ -21,7 +21,7 @@ export const InspectionList: React.FC<InspectionListProps> = ({ inspections, onE
   const [searchTerm, setSearchTerm] = useState('');
   
   // Filters
-  const [filterStatus, setFilterStatus] = useState<'Todos' | 'Iniciada' | 'No Caixa' | 'Concluída'>('Todos');
+  const [filterStatus, setFilterStatus] = useState<'Todos' | 'Iniciada' | 'No Caixa' | 'Concluída' | 'Pago'>('Todos');
   const [dateStart, setDateStart] = useState('');
   const [dateEnd, setDateEnd] = useState('');
   const [filterIndication, setFilterIndication] = useState('');
@@ -238,6 +238,7 @@ export const InspectionList: React.FC<InspectionListProps> = ({ inspections, onE
                                 <option value="Todos">Todos</option>
                                 <option value="Iniciada">Iniciada</option>
                                 <option value="No Caixa">No Caixa</option>
+                                <option value="Pago">Pago</option>
                                 <option value="Concluída">Concluída</option>
                             </select>
                         </div>
@@ -298,6 +299,23 @@ export const InspectionList: React.FC<InspectionListProps> = ({ inspections, onE
                             <strong>{selectedIds.length}</strong> item(s) selecionado(s)
                         </div>
                         <div className="flex gap-2">
+                            <Button
+                                onClick={() => {
+                                    if (selectedIds.length === 0) {
+                                        alert('Nenhum item selecionado');
+                                        return;
+                                    }
+                                    const statuses = ['Iniciada', 'No Caixa', 'Pago', 'Concluída'];
+                                    const newStatus = window.prompt(`Novo status:\n${statuses.join('\n')}`, 'Concluída');
+                                    if (!newStatus || !statuses.includes(newStatus)) return;
+                                    if (!window.confirm(`Deseja alterar ${selectedIds.length} item(s) para status "${newStatus}"?`)) return;
+                                    onBulkUpdate(selectedIds, newStatus);
+                                    setSelectedIds([]);
+                                }}
+                                className={`bg-blue-600 hover:bg-blue-700 ${selectedIds.length === 0 ? 'opacity-60 pointer-events-none' : ''}`}
+                            >
+                                Alterar Status
+                            </Button>
                             <Button
                                 onClick={() => {
                                     if (selectedIds.length === 0) {
@@ -413,13 +431,16 @@ export const InspectionList: React.FC<InspectionListProps> = ({ inspections, onE
                                     <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold border ${
                                         item.status === 'Concluída'
                                             ? 'bg-green-50 text-green-700 border-green-100'
+                                            : item.status === 'Pago'
+                                            ? 'bg-blue-50 text-blue-700 border-blue-100'
                                             : item.status === 'No Caixa'
                                             ? 'bg-orange-50 text-orange-700 border-orange-100'
                                             : 'bg-gray-100 text-gray-600 border-gray-200'
                                     }`}>
                                         <span className={`w-1.5 h-1.5 rounded-full mr-1.5 ${
                                             item.status === 'Concluída' ? 'bg-green-500' :
-                                            item.status === 'No caixa' ? 'bg-orange-500' :
+                                            item.status === 'Pago' ? 'bg-blue-500' :
+                                            item.status === 'No Caixa' ? 'bg-orange-500' :
                                             'bg-gray-500'
                                         }`}></span>
                                         {item.status}

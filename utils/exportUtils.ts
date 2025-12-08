@@ -96,7 +96,7 @@ export const exportToExcel = (inspections: Inspection[], filename: string = 'vis
 };
 
 /**
- * Exporta inspeções para PDF (tabela completa com resumo financeiro)
+ * Exporta inspeções para PDF (relatórios detalhados de cada ficha)
  */
 export const exportToPDF = async (
   inspections: Inspection[],
@@ -104,99 +104,109 @@ export const exportToPDF = async (
 ) => {
   try {
     const pdf = new jsPDF({
-      orientation: 'landscape',
+      orientation: 'portrait',
       unit: 'mm',
       format: 'a4'
     });
 
-    const pageWidth = pdf.internal.pageSize.getWidth();
-    const pageHeight = pdf.internal.pageSize.getHeight();
-    const margin = 10;
-    let yPosition = margin;
+    inspections.forEach((inspection, index) => {
+      if (index > 0) {
+        pdf.addPage();
+      }
 
-    // Título
-    pdf.setFontSize(18);
-    pdf.setTextColor(41, 128, 185);
-    pdf.text('RELATÓRIO DE VISTORIAS', margin, yPosition);
-    yPosition += 8;
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const margin = 15;
+      let yPosition = margin;
 
-    // Data de geração
-    pdf.setFontSize(9);
-    pdf.setTextColor(100, 100, 100);
-    pdf.text(`Gerado em: ${new Date().toLocaleDateString('pt-BR')} às ${new Date().toLocaleTimeString('pt-BR')}`, margin, yPosition);
-    pdf.text(`Total de Fichas: ${inspections.length}`, pageWidth - margin - 50, yPosition);
-    yPosition += 10;
+      // Cabeçalho
+      pdf.setFontSize(14);
+      pdf.text('RELATÓRIO DE VISTORIA', margin, yPosition);
+      yPosition += 8;
 
-    // Resumo Financeiro
-    const totalValue = inspections.reduce((acc, i) => acc + (i.totalValue || 0), 0);
-    const totalPago = inspections.filter(i => i.paymentStatus && i.paymentStatus.startsWith('Pago')).reduce((acc, i) => acc + (i.totalValue || 0), 0);
-    const totalAPagar = inspections.filter(i => i.paymentStatus === 'A pagar').reduce((acc, i) => acc + (i.totalValue || 0), 0);
+      pdf.setFontSize(10);
+      pdf.text(`Data: ${formatDate(inspection.date)}`, margin, yPosition);
+      yPosition += 6;
+      pdf.text(`Placa: ${inspection.licensePlate} | Modelo: ${inspection.vehicleModel}`, margin, yPosition);
+      yPosition += 8;
 
-    pdf.setFontSize(10);
-    pdf.setTextColor(0, 0, 0);
-    
-    // Box com resumo
-    pdf.setFillColor(240, 240, 240);
-    pdf.rect(margin, yPosition, pageWidth - 2 * margin, 16, 'F');
-    
-    pdf.setFontSize(9);
-    pdf.setTextColor(40, 40, 40);
-    const resumoX = margin + 5;
-    pdf.text(`RESUMO FINANCEIRO`, resumoX, yPosition + 4);
-    
-    pdf.setFontSize(8);
-    pdf.text(`Total: ${formatCurrency(totalValue)}`, resumoX, yPosition + 9);
-    pdf.setTextColor(0, 128, 0);
-    pdf.text(`Pago: ${formatCurrency(totalPago)}`, resumoX + 60, yPosition + 9);
-    pdf.setTextColor(255, 102, 0);
-    pdf.text(`A Pagar: ${formatCurrency(totalAPagar)}`, resumoX + 110, yPosition + 9);
-    
-    yPosition += 20;
+      // Informações do Cliente
+      pdf.setFontSize(11);
+      pdf.text('INFORMAÇÕES DO CLIENTE', margin, yPosition);
+      yPosition += 6;
 
-    // Tabela detalhada
-    const tableData = inspections.map(inspection => [
-      formatDate(inspection.date),
-      inspection.licensePlate,
-      inspection.vehicleModel.substring(0, 12),
-      inspection.client.name.substring(0, 12),
-      inspection.inspector || '-',
-      inspection.paymentStatus || '-',
-      inspection.status,
-      formatCurrency(inspection.totalValue)
-    ]);
+      pdf.setFontSize(10);
+      pdf.text(`Nome: ${inspection.client.name}`, margin, yPosition);
+      yPosition += 5;
+      pdf.text(`CPF/CNPJ: ${formatCpfCnpj(inspection.client.cpf)}`, margin, yPosition);
+      yPosition += 5;
+      if (inspection.client.address) {
+        pdf.text(`Endereço: ${inspection.client.address}, ${inspection.client.number || ''}${inspection.client.complement ? ', ' + inspection.client.complement : ''}`, margin, yPosition);
+        yPosition += 5;
+      }
+      if (inspection.client.cep) {
+        pdf.text(`CEP: ${inspection.client.cep}`, margin, yPosition);
+        yPosition += 5;
+      }
+      if (inspection.contact) {
+        pdf.text(`Contato: ${inspection.contact}`, margin, yPosition);
+        yPosition += 5;
+      }
+      yPosition += 3;
 
-    const headers = ['Data', 'Placa', 'Modelo', 'Cliente', 'Inspetor', 'Pagamento', 'Status', 'Valor'];
+      // Serviços
+      pdf.setFontSize(11);
+      pdf.text('SERVIÇOS', margin, yPosition);
+      yPosition += 6;
 
-    // Usar autoTable
-    (pdf as any).autoTable({
-      head: [headers],
-      body: tableData,
-      startY: yPosition,
-      margin: margin,
-      theme: 'grid',
-      styles: {
-        font: 'helvetica',
-        fontSize: 8,
-        halign: 'center',
-        valign: 'middle',
-        cellPadding: 2
-      },
-      headStyles: {
-        fillColor: [41, 128, 185],
-        textColor: 255,
-        fontStyle: 'bold',
-        fontSize: 8
-      },
-      alternateRowStyles: {
-        fillColor: [245, 245, 245]
-      },
-      columnStyles: {
-        0: { halign: 'center' },
-        1: { halign: 'center', fontStyle: 'bold' },
-        7: { halign: 'right', fontStyle: 'bold' }
-      },
-      bodyStyles: {
-        fontSize: 7
+      pdf.setFontSize(10);
+      inspection.selectedServices.forEach(service => {
+        pdf.text(`• ${service}`, margin + 5, yPosition);
+        yPosition += 5;
+      });
+      yPosition += 2;
+
+      // Dados Financeiros
+      pdf.setFontSize(11);
+      pdf.text('DADOS FINANCEIROS', margin, yPosition);
+      yPosition += 6;
+
+      pdf.setFontSize(10);
+      pdf.text(`Valor Total: ${formatCurrency(inspection.totalValue || 0)}`, margin, yPosition);
+      yPosition += 5;
+      pdf.text(`Pagamento: ${inspection.paymentStatus || '-'}`, margin, yPosition);
+      yPosition += 5;
+      pdf.text(`Status da Ficha: ${inspection.status}`, margin, yPosition);
+      yPosition += 5;
+      if (inspection.nfe) {
+        pdf.text(`NFe: ${inspection.nfe}`, margin, yPosition);
+        yPosition += 5;
+      }
+      yPosition += 3;
+
+      // Informações Adicionais
+      if (inspection.inspector || inspection.indicationName || inspection.observations) {
+        pdf.setFontSize(11);
+        pdf.text('INFORMAÇÕES ADICIONAIS', margin, yPosition);
+        yPosition += 6;
+
+        pdf.setFontSize(10);
+        if (inspection.inspector) {
+          pdf.text(`Inspetor: ${inspection.inspector}`, margin, yPosition);
+          yPosition += 5;
+        }
+        if (inspection.indicationName) {
+          pdf.text(`Indicação: ${inspection.indicationName}`, margin, yPosition);
+          yPosition += 5;
+        }
+        if (inspection.observations) {
+          pdf.text('Observações:', margin, yPosition);
+          yPosition += 4;
+          const lines = pdf.splitTextToSize(inspection.observations, pageWidth - 2 * margin);
+          lines.forEach(line => {
+            pdf.text(line, margin + 5, yPosition);
+            yPosition += 4;
+          });
+        }
       }
     });
 

@@ -204,29 +204,25 @@ export const InspectionForm: React.FC<InspectionFormProps> = ({
       const errs: string[] = [];
       if (!formData.vehicleModel || String(formData.vehicleModel).trim() === '') errs.push('- Modelo do veículo');
       if (!formData.licensePlate || String(formData.licensePlate).trim() === '') errs.push('- Placa');
+      if (!formData.inspector || String(formData.inspector).trim() === '') errs.push('- Vistoriador responsável');
       const client = formData.client || {};
       if (!client.name || String(client.name).trim() === '') errs.push('- Nome do cliente');
       const cpfDigits = (client.cpf || '').toString().replace(/\D/g, '');
       if (!cpfDigits || cpfDigits.length < 11) errs.push('- CPF/CNPJ válido do cliente');
-      const cepDigits = (client.cep || '').toString().replace(/\D/g, '');
-      if (!client.address || String(client.address).trim() === '') errs.push('- Endereço');
-      if (!cepDigits || cepDigits.length !== 8) errs.push('- CEP (8 dígitos)');
-      if (!client.number || String(client.number).trim() === '') errs.push('- Número');
       if (!formData.selectedServices || formData.selectedServices.length === 0) errs.push('- Seleção de ao menos 1 serviço');
       return errs;
   };
 
     const handleFinalSave = (e: React.FormEvent) => {
-             e.preventDefault();
-             const newStatus = formData.paymentStatus === 'A pagar' ? 'No Caixa' : 'Concluída';
-             onSave({
-                 ...formData,
-                 id: formData.id || Math.random().toString(36).substr(2, 9),
-                 totalValue: calculateTotal(),
-                 status: newStatus,
-                 paymentStatus: formData.paymentStatus
-             } as Inspection);
-     };
+              e.preventDefault();
+              onSave({
+                  ...formData,
+                  id: formData.id || Math.random().toString(36).substr(2, 9),
+                  totalValue: calculateTotal(),
+                  status: formData.status,
+                  paymentStatus: formData.paymentStatus
+              } as Inspection);
+      };
   
   const handleDeleteClick = () => {
       if (onDelete && formData.id) {
@@ -509,6 +505,26 @@ export const InspectionForm: React.FC<InspectionFormProps> = ({
                                 <option value="Dinheiro">Dinheiro</option>
                                 <option value="Crédito">Crédito</option>
                                 <option value="Débito">Débito</option>
+                            </select>
+                        </div>
+
+                        <div className="flex flex-col mb-4">
+                            <label className="text-sm font-semibold text-brand-blue mb-1">Status</label>
+                            <select
+                                className="border-2 border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-blue"
+                                value={formData.status || ''}
+                                onChange={e => handleChange('status', e.target.value)}
+                                required
+                            >
+                                <option value="">Selecione...</option>
+                                {formData.paymentStatus === 'A pagar' ? (
+                                    <>
+                                        <option value="No Caixa">No Caixa</option>
+                                        <option value="Pago">Pago</option>
+                                    </>
+                                ) : (
+                                    <option value="Concluída">Concluída</option>
+                                )}
                             </select>
                         </div>
 
