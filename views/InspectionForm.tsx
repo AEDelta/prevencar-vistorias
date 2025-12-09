@@ -341,15 +341,15 @@ export const InspectionForm: React.FC<InspectionFormProps> = ({
   };
 
     const handleFinalSave = (e: React.FormEvent) => {
-              e.preventDefault();
-              onSave({
-                  ...formData,
-                  id: formData.id || Math.random().toString(36).substr(2, 9),
-                  totalValue: formData.chargedValue || calculateTotal(),
-                  status: 'Concluída',
-                  paymentStatus: formData.paymentStatus
-              } as Inspection);
-      };
+                e.preventDefault();
+                onSave({
+                    ...formData,
+                    id: formData.id || Math.random().toString(36).substr(2, 9),
+                    totalValue: formData.chargedValue || calculateTotal(),
+                    status: formData.paymentStatus === 'A pagar' ? 'Iniciada' : 'Concluída',
+                    paymentStatus: formData.paymentStatus
+                } as Inspection);
+        };
   
   const handleDeleteClick = () => {
       if (onDelete && formData.id) {
