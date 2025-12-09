@@ -435,6 +435,8 @@ const App: React.FC = () => {
               onDelete={handleDeleteInspection}
               currentUser={currentUser}
               options={editOptions}
+              indications={indications}
+              services={services}
             />
           </Layout>
         );

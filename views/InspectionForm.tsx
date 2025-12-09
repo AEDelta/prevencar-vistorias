@@ -1,9 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Inspection, PaymentMethod, Inspector, Indication, User, VehicleCategory, SelectedService } from '../types';
+import { Inspection, PaymentMethod, Inspector, Indication, User, VehicleCategory, SelectedService, ServiceItem } from '../types';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { ArrowLeft, Save, ArrowRight, DollarSign, Send, CheckSquare, Square, Trash2, FileText, Download, Edit2, CheckCircle, XCircle } from 'lucide-react';
-import { MOCK_INDICATIONS, MOCK_SERVICES } from './Management';
 import { exportInspectionDetailToPDF } from '../utils/exportUtils';
 
 interface InspectionFormProps {
@@ -14,6 +13,8 @@ interface InspectionFormProps {
   readOnly?: boolean;
   currentUser?: User;
   options?: { initialStep?: number; focusField?: string };
+  indications: Indication[];
+  services: ServiceItem[];
 }
 
 // Masks helpers
@@ -76,7 +77,9 @@ export const InspectionForm: React.FC<InspectionFormProps> = ({
     onDelete,
     readOnly = false,
     currentUser,
-    options
+    options,
+    indications,
+    services
 }) => {
     const [step, setStep] = useState(1);
     const [isLoadingCep, setIsLoadingCep] = useState(false);
@@ -87,7 +90,8 @@ export const InspectionForm: React.FC<InspectionFormProps> = ({
     const [customServiceName, setCustomServiceName] = useState('');
     const [customServiceValue, setCustomServiceValue] = useState('');
     const canEditStep1 = !readOnly && (!(inspectionToEdit?.status === 'Concluída') || currentUser?.role === 'admin');
-  const [formData, setFormData] = useState<Partial<Inspection>>({
+    const canEditDate = currentUser?.role === 'admin' || currentUser?.role === 'financeiro';
+    const [formData, setFormData] = useState<Partial<Inspection>>({
     date: new Date().toISOString().split('T')[0],
     status: 'Iniciada',
     paymentStatus: 'A pagar',
@@ -121,24 +125,24 @@ export const InspectionForm: React.FC<InspectionFormProps> = ({
     }
   }, [inspectionToEdit, currentUser, options]);
 
-  // Update service base values when category changes
+  // Update service base and charged values when category changes
   useEffect(() => {
     if (formData.vehicleCategory) {
       setFormData(prev => ({
         ...prev,
         selectedServices: prev.selectedServices?.map(sel => {
-          const service = MOCK_SERVICES.find(s => s.name === sel.name);
+          const service = services.find(s => s.name === sel.name);
           if (service) {
-            const indication = MOCK_INDICATIONS.find(i => i.id === prev.indicationId);
-            const override = indication?.servicePrices ? indication.servicePrices[service.id] : undefined;
-            const newBase = override !== undefined ? override : (service.prices[prev.vehicleCategory!] || 0);
-            return { ...sel, baseValue: newBase };
+            const base = service.prices[prev.vehicleCategory!] || 0;
+            const indication = indications.find(i => i.id === prev.indicationId);
+            const charged = indication?.servicePrices ? indication.servicePrices[service.id] : base;
+            return { ...sel, baseValue: base, chargedValue: charged };
           }
           return sel;
         }) || []
       }));
     }
-  }, [formData.vehicleCategory]);
+  }, [formData.vehicleCategory, indications, services]);
 
   useEffect(() => {
     const errors = validateStep1();
@@ -207,15 +211,16 @@ export const InspectionForm: React.FC<InspectionFormProps> = ({
 
   const handleIndicationChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const indicationId = e.target.value;
-    const indication = MOCK_INDICATIONS.find(i => i.id === indicationId);
+    const indication = indications.find(i => i.id === indicationId);
 
     if (indication) {
         setFormData(prev => {
             const updatedServices = prev.selectedServices.map(sel => {
-                const service = MOCK_SERVICES.find(s => s.name === sel.name);
+                const service = services.find(s => s.name === sel.name);
                 if (service) {
-                    const newBase = indication.servicePrices ? indication.servicePrices[service.id] : (service.prices[prev.vehicleCategory!] || 0);
-                    return { ...sel, baseValue: newBase };
+                    const base = service.prices[prev.vehicleCategory!] || 0;
+                    const charged = indication.servicePrices ? indication.servicePrices[service.id] : base;
+                    return { ...sel, baseValue: base, chargedValue: charged };
                 }
                 return sel;
             });
@@ -239,9 +244,10 @@ export const InspectionForm: React.FC<InspectionFormProps> = ({
         // Cliente Particular
         setFormData(prev => {
             const updatedServices = prev.selectedServices.map(sel => {
-                const service = MOCK_SERVICES.find(s => s.name === sel.name);
+                const service = services.find(s => s.name === sel.name);
                 if (service) {
-                    return { ...sel, baseValue: service.prices[prev.vehicleCategory!] || 0 };
+                    const base = service.prices[prev.vehicleCategory!] || 0;
+                    return { ...sel, baseValue: base, chargedValue: base };
                 }
                 return sel;
             });
@@ -263,9 +269,11 @@ export const InspectionForm: React.FC<InspectionFormProps> = ({
           if (existing) {
               return { ...prev, selectedServices: current.filter(s => s.name !== serviceName) };
           } else {
-              const service = MOCK_SERVICES.find(s => s.name === serviceName);
-              const baseValue = service?.prices[formData.vehicleCategory!] || 0;
-              return { ...prev, selectedServices: [...current, { name: serviceName, baseValue, chargedValue: baseValue }] };
+              const service = services.find(s => s.name === serviceName);
+              const base = service?.prices[formData.vehicleCategory!] || 0;
+              const indication = indications.find(i => i.id === prev.indicationId);
+              const charged = indication?.servicePrices ? indication.servicePrices[service.id] : base;
+              return { ...prev, selectedServices: [...current, { name: serviceName, baseValue: base, chargedValue: charged }] };
           }
       });
   };
@@ -279,24 +287,24 @@ export const InspectionForm: React.FC<InspectionFormProps> = ({
    };
 
   const calculateServiceDetails = () => {
-       const details = formData.selectedServices?.map(sel => {
-           const service = MOCK_SERVICES.find(s => s.name === sel.name);
-           if (!service) return null;
-           const chargedValue = sel.chargedValue;
-           const baseValue = sel.baseValue;
-           const difference = chargedValue - baseValue;
-           return {
-               name: sel.name,
-               baseValue,
-               chargedValue,
-               difference,
-               subtotal: chargedValue
-           };
-       }).filter(Boolean) as { name: string; baseValue: number; chargedValue: number; difference: number; subtotal: number }[] || [];
-       const totalCharged = details.reduce((sum, d) => sum + d.subtotal, 0);
-       const totalDifference = details.reduce((sum, d) => sum + d.difference, 0);
-       return { details, totalCharged, totalDifference };
-   };
+        const details = formData.selectedServices?.map(sel => {
+            const service = services.find(s => s.name === sel.name);
+            if (!service) return null;
+            const chargedValue = sel.chargedValue;
+            const baseValue = sel.baseValue;
+            const difference = chargedValue - baseValue;
+            return {
+                name: sel.name,
+                baseValue,
+                chargedValue,
+                difference,
+                subtotal: chargedValue
+            };
+        }).filter(Boolean) as { name: string; baseValue: number; chargedValue: number; difference: number; subtotal: number }[] || [];
+        const totalCharged = details.reduce((sum, d) => sum + d.subtotal, 0);
+        const totalDifference = details.reduce((sum, d) => sum + d.difference, 0);
+        return { details, totalCharged, totalDifference };
+    };
 
   // Actions
   const handleSendToCashier = (e: React.FormEvent) => {
@@ -462,8 +470,9 @@ export const InspectionForm: React.FC<InspectionFormProps> = ({
                         label="Data"
                         type="date"
                         value={formData.date}
-                        readOnly
-                        className="bg-gray-100 text-gray-500 cursor-not-allowed"
+                        onChange={canEditDate ? e => handleChange('date', e.target.value) : undefined}
+                        readOnly={!canEditDate}
+                        className={!canEditDate ? "bg-gray-100 text-gray-500 cursor-not-allowed" : ""}
                     />
                     <div className="flex flex-col mb-4">
                         <label className="text-sm font-semibold text-brand-blue mb-1">Vistoriador Responsável</label>
@@ -521,7 +530,7 @@ export const InspectionForm: React.FC<InspectionFormProps> = ({
                 <div className="mt-4">
                     <label className="text-sm font-semibold text-brand-blue mb-2 block">Selecione os Serviços</label>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                        {MOCK_SERVICES.map(service => (
+                        {services.map(service => (
                             <div
                                 key={service.id}
                                 onClick={() => canEditStep1 && toggleService(service.name)}
@@ -551,7 +560,7 @@ export const InspectionForm: React.FC<InspectionFormProps> = ({
                                                 </div>
                                             );
                                         } else {
-                                            const indication = MOCK_INDICATIONS.find(i => i.id === formData.indicationId);
+                                            const indication = indications.find(i => i.id === formData.indicationId);
                                             const override = indication?.servicePrices ? indication.servicePrices[service.id] : undefined;
                                             const displayPrice = typeof override === 'number' ? override : (service.prices[formData.vehicleCategory || 'Automóveis'] || 0);
                                             return <span className="text-xs text-green-600 font-bold">R$ {displayPrice.toFixed(2)}</span>;
@@ -635,7 +644,7 @@ export const InspectionForm: React.FC<InspectionFormProps> = ({
                                                 className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-blue"
                                                 disabled={!canEditStep1}
                                             />
-                                            {MOCK_SERVICES.find(s => s.name === sel.name) && (
+                                            {services.find(s => s.name === sel.name) && (
                                                 <p className="text-xs text-gray-500 mt-1">Edite na caixa do serviço acima</p>
                                             )}
                                         </div>
@@ -659,7 +668,7 @@ export const InspectionForm: React.FC<InspectionFormProps> = ({
                                 disabled={!canEditStep1}
                             >
                                 <option value="">Cliente Particular (Sem indicação)</option>
-                                {MOCK_INDICATIONS.map(ind => (
+                                {indications.map(ind => (
                                 <option key={ind.id} value={ind.id}>{ind.name}</option>
                                 ))}
                             </select>
