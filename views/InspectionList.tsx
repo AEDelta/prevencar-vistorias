@@ -75,7 +75,7 @@ export const InspectionList: React.FC<InspectionListProps> = ({ inspections, onE
    const totalValue = inspections.reduce((acc, curr) => acc + (curr.totalValue || 0), 0);
      const totalPaid = inspections.filter(i => i.paymentStatus && i.paymentStatus !== 'A pagar' && i.status === 'Concluída').reduce((acc, curr) => acc + (curr.totalValue || 0), 0);
      const totalPendingAtCashier = inspections.filter(i => i.status === 'No Caixa' && i.paymentStatus === 'A pagar').reduce((acc, curr) => acc + (curr.totalValue || 0), 0);
-     const totalPendingOther = inspections.filter(i => i.status !== 'No Caixa' && i.paymentStatus === 'A pagar').length;
+     const totalPendingOther = inspections.filter(i => i.status !== 'No Caixa' && i.paymentStatus === 'A pagar').reduce((acc, curr) => acc + (curr.totalValue || 0), 0);
 
   // Counts
   const totalCount = inspections.length;
@@ -183,7 +183,7 @@ export const InspectionList: React.FC<InspectionListProps> = ({ inspections, onE
                 </div>
                 <div className="bg-red-50 p-4 rounded-xl shadow-sm border border-red-100">
                     <p className="text-red-600 text-xs uppercase font-bold">Outros Pendentes</p>
-                    <p className="text-2xl font-bold text-red-700">{totalPendingOther}</p>
+                    <p className="text-2xl font-bold text-red-700">{formatCurrency(totalPendingOther)}</p>
                     <p className="text-xs text-red-600">Forma: A pagar</p>
                 </div>
             </div>
