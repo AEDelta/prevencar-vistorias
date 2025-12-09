@@ -649,22 +649,6 @@ export const InspectionForm: React.FC<InspectionFormProps> = ({
                       />
                 </div>
 
-                {/* Section: Valor Cobrado */}
-                <div className="mt-6 pt-6 border-t">
-                    <h3 className="text-lg font-bold text-brand-red mb-4">Valor Cobrado</h3>
-                    <div className="bg-gray-50 p-4 rounded-lg mb-4">
-                        <p className="text-sm text-gray-600">Valor Base Calculado: <span className="font-bold text-green-600">R$ {calculateBaseTotal().toFixed(2)}</span></p>
-                    </div>
-                    <Input
-                        label="Valor Cobrado (Edite se necessário)"
-                        type="number"
-                        step="0.01"
-                        value={formData.chargedValue || calculateTotal()}
-                        onChange={e => handleChange('chargedValue', parseFloat(e.target.value) || 0)}
-                        disabled={!canEditStep1}
-                        placeholder="Digite o valor cobrado"
-                    />
-                </div>
 
                 <div className="flex flex-col md:flex-row justify-between gap-4 mt-8 pt-4 border-t items-center">
                     <div className="flex gap-2 w-full md:w-auto">
