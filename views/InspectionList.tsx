@@ -388,12 +388,13 @@ export const InspectionList: React.FC<InspectionListProps> = ({ inspections, onE
                                                 <option value="Débito">Débito</option>
                                             </select>
                                         ) : (
-                                            <span
-                                                className="cursor-pointer underline text-blue-600"
+                                            <Button
+                                                variant="outline"
+                                                className="text-xs px-2 py-1"
                                                 onClick={() => setEditingPaymentId(item.id)}
                                             >
                                                 A pagar (pendente)
-                                            </span>
+                                            </Button>
                                         )
                                     ) : (
                                         <span className={item.paymentStatus === 'A pagar' ? 'text-red-600 font-semibold' : ''}>

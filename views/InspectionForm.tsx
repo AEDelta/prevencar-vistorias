@@ -346,7 +346,7 @@ export const InspectionForm: React.FC<InspectionFormProps> = ({
                     ...formData,
                     id: formData.id || Math.random().toString(36).substr(2, 9),
                     totalValue: formData.chargedValue || calculateTotal(),
-                    status: formData.paymentStatus === 'A pagar' ? 'Iniciada' : 'Concluída',
+                    status: 'Concluída',
                     paymentStatus: formData.paymentStatus
                 } as Inspection);
         };
