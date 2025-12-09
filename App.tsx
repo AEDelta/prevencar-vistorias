@@ -25,11 +25,11 @@ const INITIAL_INDICATIONS: Indication[] = [
 ];
 
 const INITIAL_SERVICES: ServiceItem[] = [
-    { id: '1', name: 'Laudo de Transferência', price: 100.00, description: 'Laudo obrigatório para transferência.' },
-    { id: '2', name: 'Laudo Cautelar', price: 250.00, description: 'Análise completa da estrutura.' },
-    { id: '3', name: 'Vistoria Prévia', price: 150.00, description: 'Para seguradoras.' },
-    { id: '4', name: 'Pesquisa', price: 50.00, description: 'Pesquisa de débitos e restrições.' },
-    { id: '5', name: 'Prevenscan', price: 300.00, description: 'Scanner completo.' }
+    { id: '1', name: 'Laudo de Transferência', prices: { Motocicletas: 80, Automóveis: 100, Utilitários: 120, Caminhões: 200, Carretas: 250, Outros: 100 }, description: 'Laudo obrigatório para transferência.' },
+    { id: '2', name: 'Laudo Cautelar', prices: { Motocicletas: 200, Automóveis: 250, Utilitários: 300, Caminhões: 500, Carretas: 600, Outros: 250 }, description: 'Análise completa da estrutura.' },
+    { id: '3', name: 'Vistoria Prévia', prices: { Motocicletas: 120, Automóveis: 150, Utilitários: 180, Caminhões: 300, Carretas: 350, Outros: 150 }, description: 'Para seguradoras.' },
+    { id: '4', name: 'Pesquisa', prices: { Motocicletas: 40, Automóveis: 50, Utilitários: 60, Caminhões: 100, Carretas: 120, Outros: 50 }, description: 'Pesquisa de débitos e restrições.' },
+    { id: '5', name: 'Prevenscan', prices: { Motocicletas: 240, Automóveis: 300, Utilitários: 360, Caminhões: 600, Carretas: 700, Outros: 300 }, description: 'Scanner completo.' }
 ];
 
 const MOCK_INSPECTIONS: Inspection[] = [
@@ -38,7 +38,7 @@ const MOCK_INSPECTIONS: Inspection[] = [
     date: '2023-10-25',
     vehicleModel: 'Honda Civic',
     licensePlate: 'ABC-1234',
-    selectedServices: ['Laudo Cautelar'],
+    selectedServices: [{ name: 'Laudo Cautelar', baseValue: 250.00, chargedValue: 250.00 }],
     client: {
       name: 'João da Silva',
       cpf: '123.456.789-00',
@@ -56,7 +56,7 @@ const MOCK_INSPECTIONS: Inspection[] = [
     date: '2023-10-26',
     vehicleModel: 'Fiat Toro',
     licensePlate: 'XYZ-9876',
-    selectedServices: ['Vistoria de Seguro'],
+    selectedServices: [{ name: 'Vistoria Prévia', baseValue: 150.00, chargedValue: 150.00 }],
     client: {
       name: 'Maria Oliveira',
       cpf: '987.654.321-99',
@@ -405,7 +405,7 @@ const App: React.FC = () => {
       case ViewState.HOME:
         return (
           <Layout currentView={currentView} changeView={setCurrentView} logout={handleLogout} currentUser={currentUser}>
-            <Home changeView={setCurrentView} startNewInspection={handleStartNewInspection} currentUser={currentUser} />
+            <Home changeView={setCurrentView} startNewInspection={handleStartNewInspection} currentUser={currentUser} inspections={inspections} />
           </Layout>
         );
       case ViewState.INSPECTION_LIST:

@@ -1,15 +1,26 @@
 import React from 'react';
-import { ViewState, User } from '../types';
+import { ViewState, User, Inspection } from '../types';
 import { FilePlus, FileSearch, Users, Settings, FileText, TrendingUp, Calendar, AlertCircle } from 'lucide-react';
 
 interface HomeProps {
   changeView: (view: ViewState) => void;
   startNewInspection: () => void;
   currentUser?: User;
+  inspections: Inspection[];
 }
 
-export const Home: React.FC<HomeProps> = ({ changeView, startNewInspection, currentUser }) => {
+export const Home: React.FC<HomeProps> = ({ changeView, startNewInspection, currentUser, inspections }) => {
   const isVistoriador = currentUser?.role === 'vistoriador';
+
+  // Count completed inspections today
+  const completedToday = inspections.filter(i => {
+    const inspectionDate = new Date(i.date);
+    const today = new Date();
+    return i.status === 'Concluída' &&
+           inspectionDate.getFullYear() === today.getFullYear() &&
+           inspectionDate.getMonth() === today.getMonth() &&
+           inspectionDate.getDate() === today.getDate();
+  }).length;
 
   return (
     <div className="animate-fade-in space-y-8">
@@ -108,7 +119,7 @@ export const Home: React.FC<HomeProps> = ({ changeView, startNewInspection, curr
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div className="bg-gray-50 p-4 rounded-xl border border-gray-100">
                     <p className="text-gray-500 text-sm mb-1">Vistorias Realizadas</p>
-                    <p className="text-3xl font-bold text-brand-blue">12</p>
+                    <p className="text-3xl font-bold text-brand-blue">{completedToday}</p>
                     <p className="text-xs text-green-600 mt-2 flex items-center">
                         <TrendingUp size={12} className="mr-1" /> +15% vs ontem
                     </p>

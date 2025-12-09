@@ -23,7 +23,7 @@ export enum ServiceType {
 export type InspectionStatus = 'Iniciada' | 'No Caixa' | 'Concluída';
 
 // Payment method: a pagar or paid methods
-export type PaymentMethod = 'A pagar' | 'Pix' | 'Crédito' | 'Débito' | 'Dinheiro' | 'Pago';
+export type PaymentMethod = 'A pagar' | 'Pix' | 'Crédito' | 'Débito' | 'Dinheiro';
 
 export enum Inspector {
   CRIS = 'Cris',
@@ -42,19 +42,31 @@ export interface Client {
   complement?: string;
 }
 
+export enum VehicleCategory {
+   MOTOCICLETAS = 'Motocicletas',
+   AUTOMOVEIS = 'Automóveis',
+   UTILITARIOS = 'Utilitários',
+   CAMINHOES = 'Caminhões',
+   CARRETAS = 'Carretas',
+   OUTROS = 'Outros'
+}
+
 export interface Inspection {
   id: string;
   date: string; // ISO String
   vehicleModel: string;
   licensePlate: string;
   // Step 1 Data
-  selectedServices: string[]; // Changed to array for checkboxes
+  selectedServices: SelectedService[]; // Array of selected services with values
   customServiceDetail?: string;
   client: Client;
   inspector?: string;
   indicationId?: string; // Link to Indication (Provider)
   indicationName?: string;
   observations?: string;
+  externalInspection?: boolean; // Vistoria Externa
+  vehicleCategory?: VehicleCategory; // Categoria do Veículo
+  chargedValue?: number; // Total Valor Cobrado (calculated)
 
   // Step 2 Data
   paymentStatus?: PaymentMethod; // 'A pagar' or paid method
@@ -67,7 +79,7 @@ export interface Inspection {
 
   // Financial: payment date tracking
   data_pagamento?: string; // ISO date string when payment registered
-  
+
   // Financial audit fields
   mes_referencia?: string; // 'YYYY-MM' for monthly reconciliation
   valor?: number; // explicit financial value (can override totalValue)
@@ -95,11 +107,17 @@ export interface Indication { // Renamed from Provider
   servicePrices?: { [serviceId: string]: number };
 }
 
-export interface ServiceItem {
-  id: string;
+export interface SelectedService {
   name: string;
-  price: number;
-  description: string;
+  baseValue: number;
+  chargedValue: number;
+}
+
+export interface ServiceItem {
+   id: string;
+   name: string;
+   prices: Record<VehicleCategory, number>;
+   description: string;
 }
 
 // Props for Navigation

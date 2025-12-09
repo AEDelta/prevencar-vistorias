@@ -7,14 +7,14 @@ import { MOCK_INDICATIONS, MOCK_SERVICES } from './Management';
 import { exportToExcel, exportToPDF } from '../utils/exportUtils';
 
 interface InspectionListProps {
-   inspections: Inspection[];
-   onEdit: (inspection: Inspection) => void;
-   onDelete: (id: string) => void;
-   changeView: (view: ViewState) => void;
-   onCreate: () => void;
-   currentUser?: User;
-   onBulkUpdate: (ids: string[], newStatus: string) => void;
-    onBulkPaymentUpdate?: (ids: string[], newPaymentStatus: string) => void;
+    inspections: Inspection[];
+    onEdit: (inspection: Inspection, options?: { initialStep?: number; focusField?: string }) => void;
+    onDelete: (id: string) => void;
+    changeView: (view: ViewState) => void;
+    onCreate: () => void;
+    currentUser?: User;
+    onBulkUpdate: (ids: string[], newStatus: string) => void;
+     onBulkPaymentUpdate?: (ids: string[], newPaymentStatus: string) => void;
 }
 
 export const InspectionList: React.FC<InspectionListProps> = ({ inspections, onEdit, onDelete, onCreate, currentUser, onBulkUpdate, onBulkPaymentUpdate }) => {
@@ -57,7 +57,7 @@ export const InspectionList: React.FC<InspectionListProps> = ({ inspections, onE
     const matchesIndication = !filterIndication || i.indicationId === filterIndication;
 
     // Service Filter
-    const matchesService = !filterService || i.selectedServices.includes(filterService);
+    const matchesService = !filterService || i.selectedServices.some(sel => sel.name === filterService);
 
     // Payment Status Filter
     const matchesPaymentStatus = filterPaymentStatus === 'All' || i.paymentStatus === filterPaymentStatus;
@@ -153,13 +153,13 @@ export const InspectionList: React.FC<InspectionListProps> = ({ inspections, onE
                 <p className="text-green-600 text-xs uppercase font-bold">Completas</p>
                 <p className="text-3xl font-bold text-green-700">{completedCount}</p>
             </div>
-            <div className="bg-orange-50 p-4 rounded-xl shadow-sm border border-orange-100">
-                <p className="text-orange-600 text-xs uppercase font-bold">No Caixa</p>
-                <p className="text-3xl font-bold text-orange-700">{awaitingCount}</p>
+            <div className="bg-yellow-50 p-4 rounded-xl shadow-sm border border-yellow-100">
+                <p className="text-yellow-600 text-xs uppercase font-bold">No Caixa</p>
+                <p className="text-3xl font-bold text-yellow-700">{awaitingCount}</p>
             </div>
-            <div className="bg-gray-50 p-4 rounded-xl shadow-sm border border-gray-100">
-                <p className="text-gray-600 text-xs uppercase font-bold">Iniciadas</p>
-                <p className="text-3xl font-bold text-gray-700">{pendingCount}</p>
+            <div className="bg-red-50 p-4 rounded-xl shadow-sm border border-red-100">
+                <p className="text-red-600 text-xs uppercase font-bold">Iniciadas</p>
+                <p className="text-3xl font-bold text-red-700">{pendingCount}</p>
             </div>
         </div>
 
@@ -253,7 +253,6 @@ export const InspectionList: React.FC<InspectionListProps> = ({ inspections, onE
                                              <option value="Dinheiro">Dinheiro</option>
                                              <option value="Crédito">Crédito</option>
                                              <option value="Débito">Débito</option>
-                                             <option value="Pago">Pago</option>
                                       </select>
                                 </div>
 
@@ -287,7 +286,7 @@ export const InspectionList: React.FC<InspectionListProps> = ({ inspections, onE
                                         alert('Nenhum item selecionado');
                                         return;
                                     }
-                                    const statuses = ['Iniciada', 'No Caixa', 'Pago', 'Concluída'];
+                                    const statuses = ['Iniciada', 'No Caixa', 'Concluída'];
                                     const newStatus = window.prompt(`Novo status:\n${statuses.join('\n')}`, 'Concluída');
                                     if (!newStatus || !statuses.includes(newStatus)) return;
                                     if (!window.confirm(`Deseja alterar ${selectedIds.length} item(s) para status "${newStatus}"?`)) return;
@@ -382,7 +381,6 @@ export const InspectionList: React.FC<InspectionListProps> = ({ inspections, onE
                                                 autoFocus
                                             >
                                                 <option value="">Selecione método...</option>
-                                                {item.paymentStatus === 'A pagar' && <option value="Pago">Pago</option>}
                                                 <option value="Pix">Pix</option>
                                                 <option value="Dinheiro">Dinheiro</option>
                                                 <option value="Crédito">Crédito</option>
@@ -393,11 +391,13 @@ export const InspectionList: React.FC<InspectionListProps> = ({ inspections, onE
                                                 className="cursor-pointer underline text-blue-600"
                                                 onClick={() => setEditingPaymentId(item.id)}
                                             >
-                                                {item.paymentStatus || '-'}
+                                                A pagar (pendente)
                                             </span>
                                         )
                                     ) : (
-                                        item.paymentStatus || '-'
+                                        <span className={item.paymentStatus === 'A pagar' ? 'text-red-600 font-semibold' : ''}>
+                                            {item.paymentStatus === 'A pagar' ? 'A pagar (pendente)' : item.paymentStatus || '-'}
+                                        </span>
                                     )}
                                 </td>
                                 <td className="p-4 text-sm font-bold text-gray-700">
@@ -407,16 +407,16 @@ export const InspectionList: React.FC<InspectionListProps> = ({ inspections, onE
                                     <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold border ${
                                         item.status === 'Concluída'
                                             ? 'bg-green-50 text-green-700 border-green-100'
-                                            : item.status === 'Pago'
-                                            ? 'bg-blue-50 text-blue-700 border-blue-100'
                                             : item.status === 'No Caixa'
-                                            ? 'bg-orange-50 text-orange-700 border-orange-100'
+                                            ? 'bg-yellow-50 text-yellow-700 border-yellow-100'
+                                            : item.status === 'Iniciada'
+                                            ? 'bg-red-50 text-red-700 border-red-100'
                                             : 'bg-gray-100 text-gray-600 border-gray-200'
                                     }`}>
                                         <span className={`w-1.5 h-1.5 rounded-full mr-1.5 ${
                                             item.status === 'Concluída' ? 'bg-green-500' :
-                                            item.status === 'Pago' ? 'bg-blue-500' :
-                                            item.status === 'No Caixa' ? 'bg-orange-500' :
+                                            item.status === 'No Caixa' ? 'bg-yellow-500' :
+                                            item.status === 'Iniciada' ? 'bg-red-500' :
                                             'bg-gray-500'
                                         }`}></span>
                                         {item.status}

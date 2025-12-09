@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Inspection, PaymentMethod, Inspector, Indication, User } from '../types';
+import { Inspection, PaymentMethod, Inspector, Indication, User, VehicleCategory, SelectedService } from '../types';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { ArrowLeft, Save, ArrowRight, DollarSign, Send, CheckSquare, Square, Trash2, FileText, Download } from 'lucide-react';
@@ -61,14 +61,16 @@ export const InspectionForm: React.FC<InspectionFormProps> = ({
     readOnly = false,
     currentUser
 }) => {
-   const [step, setStep] = useState(1);
-   const [isLoadingCep, setIsLoadingCep] = useState(false);
-   const [isStep1Complete, setIsStep1Complete] = useState(false);
+    const [step, setStep] = useState(1);
+    const [isLoadingCep, setIsLoadingCep] = useState(false);
+    const [isStep1Complete, setIsStep1Complete] = useState(false);
+    const canEditStep1 = !readOnly && (!(inspectionToEdit?.status === 'Concluída') || currentUser?.role === 'admin');
   const [formData, setFormData] = useState<Partial<Inspection>>({
     date: new Date().toISOString().split('T')[0],
     status: 'Iniciada',
     paymentStatus: 'A pagar',
     selectedServices: [],
+    vehicleCategory: 'Automóveis',
     client: {
         name: '',
         cpf: '',
@@ -87,6 +89,25 @@ export const InspectionForm: React.FC<InspectionFormProps> = ({
             setFormData(prev => ({ ...prev, inspector: firstName }));
     }
   }, [inspectionToEdit, currentUser]);
+
+  // Update service base values when category changes
+  useEffect(() => {
+    if (formData.vehicleCategory) {
+      setFormData(prev => ({
+        ...prev,
+        selectedServices: prev.selectedServices?.map(sel => {
+          const service = MOCK_SERVICES.find(s => s.name === sel.name);
+          if (service) {
+            const indication = MOCK_INDICATIONS.find(i => i.id === prev.indicationId);
+            const override = indication?.servicePrices ? indication.servicePrices[service.id] : undefined;
+            const newBase = override !== undefined ? override : (service.prices[prev.vehicleCategory!] || 0);
+            return { ...sel, baseValue: newBase };
+          }
+          return sel;
+        }) || []
+      }));
+    }
+  }, [formData.vehicleCategory]);
 
   useEffect(() => {
     const errors = validateStep1();
@@ -130,53 +151,105 @@ export const InspectionForm: React.FC<InspectionFormProps> = ({
     }));
   };
 
+  const updateServiceValue = (index: number, field: 'baseValue' | 'chargedValue', value: number) => {
+    setFormData(prev => {
+      const newServices = [...prev.selectedServices];
+      newServices[index] = { ...newServices[index], [field]: value };
+      return { ...prev, selectedServices: newServices };
+    });
+  };
+
   const handleIndicationChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const indicationId = e.target.value;
     const indication = MOCK_INDICATIONS.find(i => i.id === indicationId);
-    
+
     if (indication) {
-        setFormData(prev => ({
-            ...prev,
-            indicationId: indication.id,
-            indicationName: indication.name,
-            // Auto fill client data if desired
-            client: {
-                ...prev.client!,
-                name: indication.name,
-                cpf: indication.document.replace(/\D/g, ''),
-                cep: indication.cep || '',
-                address: indication.address || '',
-                number: indication.number || ''
-            }
-        }));
+        setFormData(prev => {
+            const updatedServices = prev.selectedServices.map(sel => {
+                const service = MOCK_SERVICES.find(s => s.name === sel.name);
+                if (service) {
+                    const newBase = indication.servicePrices ? indication.servicePrices[service.id] : (service.prices[prev.vehicleCategory!] || 0);
+                    return { ...sel, baseValue: newBase };
+                }
+                return sel;
+            });
+            return {
+                ...prev,
+                indicationId: indication.id,
+                indicationName: indication.name,
+                selectedServices: updatedServices,
+                // Auto fill client data if desired
+                client: {
+                    ...prev.client!,
+                    name: indication.name,
+                    cpf: indication.document.replace(/\D/g, ''),
+                    cep: indication.cep || '',
+                    address: indication.address || '',
+                    number: indication.number || ''
+                }
+            };
+        });
     } else {
-        setFormData(prev => ({ ...prev, indicationId: undefined, indicationName: undefined }));
+        // Cliente Particular
+        setFormData(prev => {
+            const updatedServices = prev.selectedServices.map(sel => {
+                const service = MOCK_SERVICES.find(s => s.name === sel.name);
+                if (service) {
+                    return { ...sel, baseValue: service.prices[prev.vehicleCategory!] || 0 };
+                }
+                return sel;
+            });
+            return {
+                ...prev,
+                indicationId: undefined,
+                indicationName: undefined,
+                selectedServices: updatedServices
+            };
+        });
     }
   };
 
   const toggleService = (serviceName: string) => {
       setFormData(prev => {
-          const current = prev.selectedServices || [];
-          if (current.includes(serviceName)) {
-              return { ...prev, selectedServices: current.filter(s => s !== serviceName) };
+          const current: SelectedService[] = prev.selectedServices || [];
+          const existing = current.find(s => s.name === serviceName);
+          if (existing) {
+              return { ...prev, selectedServices: current.filter(s => s.name !== serviceName) };
           } else {
-              return { ...prev, selectedServices: [...current, serviceName] };
+              const service = MOCK_SERVICES.find(s => s.name === serviceName);
+              const baseValue = service?.prices[formData.vehicleCategory!] || 0;
+              return { ...prev, selectedServices: [...current, { name: serviceName, baseValue, chargedValue: baseValue }] };
           }
       });
   };
 
   const calculateTotal = () => {
-      let total = 0;
-      // If an indication is selected and it provides per-service overrides, prefer those prices
-      const indication = MOCK_INDICATIONS.find(i => i.id === formData.indicationId);
-      formData.selectedServices?.forEach(sName => {
-          const service = MOCK_SERVICES.find(s => s.name === sName);
-          if (!service) return;
-          const override = indication?.servicePrices ? indication.servicePrices[service.id] : undefined;
-          total += typeof override === 'number' ? override : service.price;
-      });
-      return total;
-  };
+       return formData.selectedServices?.reduce((sum, sel) => sum + sel.chargedValue, 0) || 0;
+   };
+
+   const calculateBaseTotal = () => {
+       return formData.selectedServices?.reduce((sum, sel) => sum + sel.baseValue, 0) || 0;
+   };
+
+  const calculateServiceDetails = () => {
+       const details = formData.selectedServices?.map(sel => {
+           const service = MOCK_SERVICES.find(s => s.name === sel.name);
+           if (!service) return null;
+           const chargedValue = sel.chargedValue;
+           const baseValue = sel.baseValue;
+           const difference = chargedValue - baseValue;
+           return {
+               name: sel.name,
+               baseValue,
+               chargedValue,
+               difference,
+               subtotal: chargedValue
+           };
+       }).filter(Boolean) as { name: string; baseValue: number; chargedValue: number; difference: number; subtotal: number }[] || [];
+       const totalCharged = details.reduce((sum, d) => sum + d.subtotal, 0);
+       const totalDifference = details.reduce((sum, d) => sum + d.difference, 0);
+       return { details, totalCharged, totalDifference };
+   };
 
   // Actions
   const handleSendToCashier = (e: React.FormEvent) => {
@@ -189,7 +262,7 @@ export const InspectionForm: React.FC<InspectionFormProps> = ({
       onSave({
           ...formData,
           id: formData.id || Math.random().toString(36).substr(2, 9),
-          totalValue: calculateTotal(),
+          totalValue: formData.chargedValue || calculateTotal(),
           status: 'No Caixa',
           paymentStatus: formData.paymentStatus
       } as Inspection);
@@ -211,6 +284,7 @@ export const InspectionForm: React.FC<InspectionFormProps> = ({
       if (!formData.vehicleModel || String(formData.vehicleModel).trim() === '') errs.push('- Modelo do veículo');
       if (!formData.licensePlate || String(formData.licensePlate).trim() === '') errs.push('- Placa');
       if (!formData.inspector || String(formData.inspector).trim() === '') errs.push('- Vistoriador responsável');
+      if (!formData.vehicleCategory || String(formData.vehicleCategory).trim() === '') errs.push('- Categoria do veículo');
       const client = formData.client || {};
       if (!client.name || String(client.name).trim() === '') errs.push('- Nome do cliente');
       const cpfDigits = (client.cpf || '').toString().replace(/\D/g, '');
@@ -221,12 +295,11 @@ export const InspectionForm: React.FC<InspectionFormProps> = ({
 
     const handleFinalSave = (e: React.FormEvent) => {
               e.preventDefault();
-              const finalStatus = formData.paymentStatus === 'A pagar' ? 'No Caixa' : 'Concluída';
               onSave({
                   ...formData,
                   id: formData.id || Math.random().toString(36).substr(2, 9),
-                  totalValue: calculateTotal(),
-                  status: finalStatus,
+                  totalValue: formData.chargedValue || calculateTotal(),
+                  status: 'Concluída',
                   paymentStatus: formData.paymentStatus
               } as Inspection);
       };
@@ -263,7 +336,7 @@ export const InspectionForm: React.FC<InspectionFormProps> = ({
                                     <div className="p-2 bg-gray-50 rounded"><strong>Modelo:</strong> {formData.vehicleModel}</div>
                                     <div className="p-2 bg-gray-50 rounded"><strong>Cliente:</strong> {formData.client?.name}</div>
                                     <div className="p-2 bg-gray-50 rounded"><strong>CPF/CNPJ:</strong> {maskCpfCnpj(formData.client?.cpf || '')}</div>
-                                    <div className="p-2 bg-gray-50 rounded col-span-2"><strong>Serviços:</strong> {formData.selectedServices?.join(', ')}</div>
+                                    <div className="p-2 bg-gray-50 rounded col-span-2"><strong>Serviços:</strong> {formData.selectedServices?.map(sel => sel.name).join(', ')}</div>
                                     <div className="p-2 bg-gray-50 rounded col-span-2"><strong>Observações:</strong> {formData.observations || '-'}</div>
                                     <div className="p-2 bg-gray-50 rounded"><strong>Status:</strong> {formData.status}</div>
                                     <div className="p-2 bg-gray-50 rounded"><strong>Total:</strong> R$ {formData.totalValue?.toFixed(2)}</div>
@@ -305,11 +378,12 @@ export const InspectionForm: React.FC<InspectionFormProps> = ({
                 {/* Section: Dados Iniciais */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                      <Input
-                        label="Modelo do Veículo"
-                        value={formData.vehicleModel || ''}
-                        onChange={e => handleChange('vehicleModel', e.target.value)}
-                        required
-                    />
+                         label="Modelo do Veículo"
+                         value={formData.vehicleModel || ''}
+                         onChange={e => handleChange('vehicleModel', e.target.value)}
+                         required
+                         disabled={!canEditStep1}
+                     />
                     <Input
                         label="Placa"
                         value={formData.licensePlate || ''}
@@ -317,6 +391,7 @@ export const InspectionForm: React.FC<InspectionFormProps> = ({
                         required
                         maxLength={8}
                         placeholder="ABC-1234"
+                        disabled={!canEditStep1}
                     />
                     <Input
                         label="Data"
@@ -336,10 +411,11 @@ export const InspectionForm: React.FC<InspectionFormProps> = ({
                             />
                         ) : (
                             <select
-                                className="border-2 border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-blue"
+                                className={`${!canEditStep1 ? 'bg-gray-100 text-gray-700 cursor-not-allowed' : 'focus:outline-none focus:ring-2 focus:ring-brand-blue'} border-2 border-gray-300 rounded-lg px-3 py-2`}
                                 value={formData.inspector || ''}
                                 onChange={e => handleChange('inspector', e.target.value)}
                                 required
+                                disabled={!canEditStep1}
                             >
                                 <option value="">Selecione...</option>
                                 {Object.values(Inspector).map(insp => (
@@ -348,6 +424,32 @@ export const InspectionForm: React.FC<InspectionFormProps> = ({
                             </select>
                         )}
                     </div>
+                    <div className="flex items-center mb-4">
+                        <input
+                            type="checkbox"
+                            id="externalInspection"
+                            checked={formData.externalInspection || false}
+                            onChange={e => handleChange('externalInspection', e.target.checked)}
+                            disabled={!canEditStep1}
+                            className="mr-2"
+                        />
+                        <label htmlFor="externalInspection" className="text-sm font-semibold text-brand-blue">Vistoria Externa</label>
+                    </div>
+                    <div className="flex flex-col mb-4">
+                        <label className="text-sm font-semibold text-brand-blue mb-1">Categoria do Veículo *</label>
+                        <select
+                            className={`${!canEditStep1 ? 'bg-gray-100 text-gray-700 cursor-not-allowed' : 'focus:outline-none focus:ring-2 focus:ring-brand-blue'} border-2 border-gray-300 rounded-lg px-3 py-2`}
+                            value={formData.vehicleCategory || ''}
+                            onChange={e => handleChange('vehicleCategory', e.target.value)}
+                            required
+                            disabled={!canEditStep1}
+                        >
+                            <option value="">Selecione...</option>
+                            {Object.values(VehicleCategory).map(cat => (
+                            <option key={cat} value={cat}>{cat}</option>
+                            ))}
+                        </select>
+                    </div>
                 </div>
 
                 {/* Section: Serviços (Checkbox) */}
@@ -355,25 +457,62 @@ export const InspectionForm: React.FC<InspectionFormProps> = ({
                     <label className="text-sm font-semibold text-brand-blue mb-2 block">Selecione os Serviços</label>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                         {MOCK_SERVICES.map(service => (
-                            <div 
-                                key={service.id} 
-                                onClick={() => toggleService(service.name)}
-                                className={`cursor-pointer p-3 border-2 rounded-lg flex items-center space-x-3 transition-all ${formData.selectedServices?.includes(service.name) ? 'border-brand-blue bg-blue-50' : 'border-gray-200 hover:border-gray-300'}`}
+                            <div
+                                key={service.id}
+                                onClick={() => canEditStep1 && toggleService(service.name)}
+                                className={`${canEditStep1 ? 'cursor-pointer' : 'cursor-not-allowed'} p-3 border-2 rounded-lg flex items-center space-x-3 transition-all ${formData.selectedServices?.some(sel => sel.name === service.name) ? 'border-brand-blue bg-blue-50' : 'border-gray-200'}`}
                             >
-                                {formData.selectedServices?.includes(service.name) ? <CheckSquare className="text-brand-blue"/> : <Square className="text-gray-300"/>}
+                                {formData.selectedServices?.some(sel => sel.name === service.name) ? <CheckSquare className="text-brand-blue"/> : <Square className="text-gray-300"/>}
                                 <div className="flex flex-col">
                                     <span className="font-medium text-gray-800">{service.name}</span>
                                     {(() => {
-                                        const indication = MOCK_INDICATIONS.find(i => i.id === formData.indicationId);
-                                        const override = indication?.servicePrices ? indication.servicePrices[service.id] : undefined;
-                                        const displayPrice = typeof override === 'number' ? override : service.price;
-                                        return <span className="text-xs text-green-600 font-bold">R$ {displayPrice.toFixed(2)}</span>;
+                                        const sel = formData.selectedServices.find(s => s.name === service.name);
+                                        if (sel) {
+                                            return <span className="text-xs text-green-600 font-bold">R$ {sel.chargedValue.toFixed(2)}</span>;
+                                        } else {
+                                            const indication = MOCK_INDICATIONS.find(i => i.id === formData.indicationId);
+                                            const override = indication?.servicePrices ? indication.servicePrices[service.id] : undefined;
+                                            const displayPrice = typeof override === 'number' ? override : (service.prices[formData.vehicleCategory || 'Automóveis'] || 0);
+                                            return <span className="text-xs text-green-600 font-bold">R$ {displayPrice.toFixed(2)}</span>;
+                                        }
                                     })()}
                                 </div>
                             </div>
                         ))}
                     </div>
                 </div>
+
+                {/* Section: Serviços Selecionados */}
+                {formData.selectedServices.length > 0 && (
+                    <div className="mt-6 pt-6 border-t">
+                        <h3 className="text-lg font-bold text-brand-red mb-4">Serviços Selecionados</h3>
+                        <div className="space-y-4">
+                            {formData.selectedServices.map((sel, index) => (
+                                <div key={sel.name} className="p-4 border rounded-lg bg-gray-50">
+                                    <h4 className="font-semibold mb-2">{sel.name}</h4>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <Input
+                                            label="Valor Base"
+                                            type="number"
+                                            step="0.01"
+                                            value={sel.baseValue}
+                                            onChange={e => updateServiceValue(index, 'baseValue', parseFloat(e.target.value) || 0)}
+                                            disabled={!canEditStep1}
+                                        />
+                                        <Input
+                                            label="Valor Cobrado"
+                                            type="number"
+                                            step="0.01"
+                                            value={sel.chargedValue}
+                                            onChange={e => updateServiceValue(index, 'chargedValue', parseFloat(e.target.value) || 0)}
+                                            disabled={!canEditStep1}
+                                        />
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
 
                 {/* Section: Indicação e Cliente */}
                 <div className="mt-6 border-t pt-6">
@@ -382,9 +521,10 @@ export const InspectionForm: React.FC<InspectionFormProps> = ({
                          <div className="flex flex-col mb-4">
                             <label className="text-sm font-semibold text-brand-blue mb-1">Indicação (Opcional)</label>
                             <select
-                                className="border-2 border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-blue"
+                                className={`${!canEditStep1 ? 'bg-gray-100 text-gray-700 cursor-not-allowed' : 'focus:outline-none focus:ring-2 focus:ring-brand-blue'} border-2 border-gray-300 rounded-lg px-3 py-2`}
                                 value={formData.indicationId || ''}
                                 onChange={handleIndicationChange}
+                                disabled={!canEditStep1}
                             >
                                 <option value="">Cliente Particular (Sem indicação)</option>
                                 {MOCK_INDICATIONS.map(ind => (
@@ -399,6 +539,7 @@ export const InspectionForm: React.FC<InspectionFormProps> = ({
                             value={formData.client?.name || ''}
                             onChange={e => handleClientChange('name', e.target.value)}
                             required
+                            disabled={!canEditStep1}
                         />
                         <Input
                             label="CPF/CNPJ"
@@ -407,6 +548,7 @@ export const InspectionForm: React.FC<InspectionFormProps> = ({
                             required
                             placeholder="000.000.000-00 ou 00.000.000/0000-00"
                             maxLength={18}
+                            disabled={!canEditStep1}
                         />
                      </div>
                 </div>
@@ -415,11 +557,29 @@ export const InspectionForm: React.FC<InspectionFormProps> = ({
                  <div className="mt-4">
                       <label className="text-sm font-semibold text-brand-blue mb-1">Observações Gerais</label>
                       <textarea
-                        className="w-full border-2 border-gray-300 rounded-lg px-3 py-2 h-24 focus:outline-none focus:ring-2 focus:ring-brand-blue resize-none"
+                        className={`${!canEditStep1 ? 'bg-gray-100 text-gray-700 cursor-not-allowed' : 'focus:outline-none focus:ring-2 focus:ring-brand-blue'} w-full border-2 border-gray-300 rounded-lg px-3 py-2 h-24 resize-none`}
                         value={formData.observations || ''}
                         onChange={e => handleChange('observations', e.target.value)}
                         placeholder="Detalhes adicionais..."
+                        disabled={!canEditStep1}
                       />
+                </div>
+
+                {/* Section: Valor Cobrado */}
+                <div className="mt-6 pt-6 border-t">
+                    <h3 className="text-lg font-bold text-brand-red mb-4">Valor Cobrado</h3>
+                    <div className="bg-gray-50 p-4 rounded-lg mb-4">
+                        <p className="text-sm text-gray-600">Valor Base Calculado: <span className="font-bold text-green-600">R$ {calculateBaseTotal().toFixed(2)}</span></p>
+                    </div>
+                    <Input
+                        label="Valor Cobrado (Edite se necessário)"
+                        type="number"
+                        step="0.01"
+                        value={formData.chargedValue || calculateTotal()}
+                        onChange={e => handleChange('chargedValue', parseFloat(e.target.value) || 0)}
+                        disabled={!canEditStep1}
+                        placeholder="Digite o valor cobrado"
+                    />
                 </div>
 
                 <div className="flex flex-col md:flex-row justify-between gap-4 mt-8 pt-4 border-t items-center">
@@ -452,16 +612,47 @@ export const InspectionForm: React.FC<InspectionFormProps> = ({
 
         {step === 2 && (
           <div className="animate-fade-in space-y-6">
-            <form onSubmit={handleFinalSave}>
-                <div className="bg-gray-50 p-4 rounded-lg border border-gray-200 mb-6 text-sm">
-                    <h4 className="font-bold text-gray-700 mb-2">Resumo da Etapa 01:</h4>
-                    <p><span className="font-semibold">Cliente:</span> {formData.client?.name}</p>
-                    <p><span className="font-semibold">Serviços:</span> {formData.selectedServices?.join(', ')}</p>
-                     {formData.observations && <p><span className="font-semibold">Obs:</span> {formData.observations}</p>}
-                </div>
+            {(() => {
+                const { details, totalCharged, totalDifference } = calculateServiceDetails();
+                return (
+                    <form onSubmit={handleFinalSave}>
+                        <div className="bg-gray-50 p-4 rounded-lg border border-gray-200 mb-6 text-sm">
+                            <h4 className="font-bold text-gray-700 mb-2">Resumo da Etapa 01:</h4>
+                            <p><span className="font-semibold">Cliente:</span> {formData.client?.name}</p>
+                            <p><span className="font-semibold">Serviços:</span> {formData.selectedServices?.map(sel => sel.name).join(', ')}</p>
+                             {formData.observations && <p><span className="font-semibold">Obs:</span> {formData.observations}</p>}
+                        </div>
 
-                <div>
-                    <h3 className="text-lg font-bold text-brand-red mb-4 border-b pb-2">Endereço e Pagamento</h3>
+                        <div className="mb-6">
+                            <h3 className="text-lg font-bold text-brand-red mb-4 border-b pb-2">Resumo Financeiro</h3>
+                            <div className="overflow-x-auto">
+                                <table className="w-full text-sm border-collapse">
+                                    <thead>
+                                        <tr className="border-b-2 border-gray-300">
+                                            <th className="text-left p-2 font-semibold">Serviço</th>
+                                            <th className="text-right p-2 font-semibold">Valor Base</th>
+                                            <th className="text-right p-2 font-semibold">Valor Cobrado</th>
+                                            <th className="text-right p-2 font-semibold">Diferença</th>
+                                            <th className="text-right p-2 font-semibold">Subtotal</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {details.map((detail, idx) => (
+                                            <tr key={idx} className="border-b border-gray-200">
+                                                <td className="p-2">{detail.name}</td>
+                                                <td className="p-2 text-right">R$ {detail.baseValue.toFixed(2)}</td>
+                                                <td className="p-2 text-right">R$ {detail.chargedValue.toFixed(2)}</td>
+                                                <td className="p-2 text-right">R$ {detail.difference.toFixed(2)}</td>
+                                                <td className="p-2 text-right">R$ {detail.subtotal.toFixed(2)}</td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <div>
+                            <h3 className="text-lg font-bold text-brand-red mb-4 border-b pb-2">Endereço e Pagamento</h3>
                     
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div className="relative">
@@ -514,7 +705,6 @@ export const InspectionForm: React.FC<InspectionFormProps> = ({
                                 <option value="Dinheiro">Dinheiro</option>
                                 <option value="Crédito">Crédito</option>
                                 <option value="Débito">Débito</option>
-                                <option value="Pago">Pago</option>
                             </select>
                         </div>
 
@@ -534,9 +724,15 @@ export const InspectionForm: React.FC<InspectionFormProps> = ({
                     </div>
                 </div>
                 
-                <div className="bg-green-50 p-4 rounded-xl border border-green-100 flex justify-between items-center mt-6">
-                    <span className="text-green-800 font-medium">Total a Pagar:</span>
-                    <span className="text-2xl font-bold text-green-700">R$ {calculateTotal().toFixed(2)}</span>
+                <div className="bg-green-50 p-4 rounded-xl border border-green-100 mt-6">
+                    <div className="flex justify-between items-center mb-2">
+                        <span className="text-green-800 font-medium">Soma dos Valores Cobrados:</span>
+                        <span className="text-xl font-bold text-green-700">R$ {totalCharged.toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                        <span className="text-green-800 font-medium">Soma das Diferenças:</span>
+                        <span className="text-xl font-bold text-green-700">R$ {totalDifference.toFixed(2)}</span>
+                    </div>
                 </div>
 
                 <div className="flex justify-end space-x-4 mt-8 pt-4 border-t">
@@ -548,6 +744,8 @@ export const InspectionForm: React.FC<InspectionFormProps> = ({
                 </Button>
                 </div>
             </form>
+                );
+            })()}
           </div>
         )}
       </div>

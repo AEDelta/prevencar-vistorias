@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { Users, Truck, Briefcase, Plus, ArrowLeft, Trash2, Edit2, User as UserIcon, Lock, Check, AlertTriangle, Download, FileText } from 'lucide-react';
-import { User, Indication, ServiceItem, Role } from '../types';
+import { User, Indication, ServiceItem, Role, VehicleCategory } from '../types';
 import { exportToExcel, exportToPDF } from '../utils/exportUtils';
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
@@ -38,11 +38,11 @@ export const MOCK_INDICATIONS_FALLBACK: Indication[] = [
 ];
 
 export const MOCK_SERVICES_FALLBACK: ServiceItem[] = [
-    { id: '1', name: 'Laudo de Transferência', price: 100.00, description: 'Laudo obrigatório para transferência.' },
-    { id: '2', name: 'Laudo Cautelar', price: 250.00, description: 'Análise completa da estrutura.' },
-    { id: '3', name: 'Vistoria Prévia', price: 150.00, description: 'Para seguradoras.' },
-    { id: '4', name: 'Pesquisa', price: 50.00, description: 'Pesquisa de débitos e restrições.' },
-    { id: '5', name: 'Prevenscan', price: 300.00, description: 'Scanner completo.' }
+    { id: '1', name: 'Laudo de Transferência', prices: { Motocicletas: 80, Automóveis: 100, Utilitários: 120, Caminhões: 200, Carretas: 250, Outros: 100 }, description: 'Laudo obrigatório para transferência.' },
+    { id: '2', name: 'Laudo Cautelar', prices: { Motocicletas: 200, Automóveis: 250, Utilitários: 300, Caminhões: 500, Carretas: 600, Outros: 250 }, description: 'Análise completa da estrutura.' },
+    { id: '3', name: 'Vistoria Prévia', prices: { Motocicletas: 120, Automóveis: 150, Utilitários: 180, Caminhões: 300, Carretas: 350, Outros: 150 }, description: 'Para seguradoras.' },
+    { id: '4', name: 'Pesquisa', prices: { Motocicletas: 40, Automóveis: 50, Utilitários: 60, Caminhões: 100, Carretas: 120, Outros: 50 }, description: 'Pesquisa de débitos e restrições.' },
+    { id: '5', name: 'Prevenscan', prices: { Motocicletas: 240, Automóveis: 300, Utilitários: 360, Caminhões: 600, Carretas: 700, Outros: 300 }, description: 'Scanner completo.' }
 ];
 
 export { MOCK_INDICATIONS_FALLBACK as MOCK_INDICATIONS, MOCK_SERVICES_FALLBACK as MOCK_SERVICES };
@@ -136,7 +136,7 @@ export const Management: React.FC<ManagementProps> = ({
       setEditingId(null);
       if(type === 'user') setUserForm({});
       if(type === 'indication') setIndicationForm({ servicePrices: {} });
-      if(type === 'service') setServiceForm({});
+      if(type === 'service') setServiceForm({ prices: {} });
       setViewMode('form');
   };
 
@@ -271,6 +271,72 @@ export const Management: React.FC<ManagementProps> = ({
     } catch (error) {
       console.error('Erro ao exportar usuários:', error);
       alert('Erro ao exportar usuários');
+    }
+  };
+
+  const handleExportIndications = (type: 'pdf' | 'excel') => {
+    try {
+      if (indications.length === 0) {
+        alert('Nenhuma indicação para exportar');
+        return;
+      }
+
+      const timestamp = new Date().toISOString().split('T')[0];
+
+      if (type === 'excel') {
+        const data = indications.map(indication => ({
+          'Nome': indication.name,
+          'Documento': maskDocument(indication.document || ''),
+          'Telefone': indication.phone,
+          'Email': indication.email,
+          'CEP': indication.cep,
+          'Endereço': indication.address,
+          'Número': indication.number,
+        }));
+
+        const worksheet = XLSX.utils.json_to_sheet(data);
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, 'Indicacoes');
+        XLSX.writeFile(workbook, `indicacoes_${timestamp}.xlsx`);
+      } else {
+        const pdf = new jsPDF();
+        const pageWidth = pdf.internal.pageSize.getWidth();
+        const margin = 15;
+        let yPosition = margin;
+
+        pdf.setFontSize(16);
+        pdf.text('Lista de Indicações', margin, yPosition);
+        yPosition += 15;
+
+        pdf.setFontSize(10);
+        pdf.text(`Gerado em: ${new Date().toLocaleDateString('pt-BR')}`, margin, yPosition);
+        yPosition += 10;
+
+        const tableData = indications.map(indication => [
+          indication.name,
+          maskDocument(indication.document || ''),
+          indication.phone || '',
+          indication.email || '',
+          indication.cep || '',
+          indication.address || '',
+          indication.number || ''
+        ]);
+
+        (pdf as any).autoTable({
+          head: [['Nome', 'Documento', 'Telefone', 'Email', 'CEP', 'Endereço', 'Número']],
+          body: tableData,
+          startY: yPosition,
+          margin: margin,
+          theme: 'grid',
+          styles: { font: 'helvetica', fontSize: 9 },
+          headStyles: { fillColor: [41, 128, 185], textColor: 255, fontStyle: 'bold' }
+        });
+
+        pdf.save(`indicacoes_${timestamp}.pdf`);
+      }
+    } catch (error) {
+      console.error('Erro ao exportar indicações:', error);
+      alert('Erro ao exportar indicações');
     }
   };
 
@@ -547,9 +613,17 @@ export const Management: React.FC<ManagementProps> = ({
                             <h2 className="text-xl font-bold text-gray-800">Indicações</h2>
                             <p className="text-gray-500 text-sm">Parceiros e Lojistas</p>
                         </div>
-                        <Button onClick={() => prepareCreate('indication')} className="w-full md:w-auto bg-brand-blue shadow-md shadow-blue-100">
-                            <Truck size={18} className="mr-2"/> Nova Indicação
-                        </Button>
+                        <div className="flex gap-2 w-full md:w-auto">
+                            <Button onClick={() => handleExportIndications('excel')} variant="outline" className="flex-1 md:flex-none">
+                                <Download size={18} className="mr-2" /> Exportar para Excel
+                            </Button>
+                            <Button onClick={() => handleExportIndications('pdf')} variant="outline" className="flex-1 md:flex-none">
+                                <FileText size={18} className="mr-2" /> Exportar para PDF
+                            </Button>
+                            <Button onClick={() => prepareCreate('indication')} className="flex-1 md:flex-none bg-brand-blue shadow-md shadow-blue-100">
+                                <Truck size={18} className="mr-2"/> Nova Indicação
+                            </Button>
+                        </div>
                     </div>
                      <div className="overflow-hidden rounded-xl border border-gray-100">
                         <table className="w-full text-left border-collapse">
@@ -700,7 +774,6 @@ export const Management: React.FC<ManagementProps> = ({
                             <thead>
                                 <tr className="bg-gray-50 border-b border-gray-100">
                                     <th className="p-4 font-semibold text-gray-600 text-sm uppercase tracking-wider">Serviço</th>
-                                    <th className="p-4 font-semibold text-gray-600 text-sm uppercase tracking-wider">Valor</th>
                                     <th className="p-4 text-right font-semibold text-gray-600 text-sm uppercase tracking-wider">Ações</th>
                                 </tr>
                             </thead>
@@ -708,9 +781,6 @@ export const Management: React.FC<ManagementProps> = ({
                                 {services.map(s => (
                                     <tr key={s.id} className="hover:bg-gray-50 transition-colors">
                                         <td className="p-4 font-bold text-gray-800">{s.name}</td>
-                                        <td className="p-4 font-medium text-green-700">
-                                            {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(s.price)}
-                                        </td>
                                         <td className="p-4 text-right flex justify-end items-center gap-2">
                                              <button type="button" onClick={() => prepareEdit(s.id, 'service')} className="text-gray-400 hover:text-brand-blue p-2 rounded-lg hover:bg-blue-50 transition-colors" title="Editar">
                                                 <Edit2 size={18} />
@@ -747,7 +817,23 @@ export const Management: React.FC<ManagementProps> = ({
                     </div>
                     <form onSubmit={submitService} className="space-y-6">
                         <Input label="Nome do Serviço" value={serviceForm.name || ''} onChange={e => setServiceForm({...serviceForm, name: e.target.value})} required className="bg-gray-50" />
-                        <Input label="Preço (R$)" type="number" step="0.01" value={serviceForm.price || ''} onChange={e => setServiceForm({...serviceForm, price: parseFloat(e.target.value)})} required className="bg-gray-50" />
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {Object.values(VehicleCategory).map(cat => (
+                                <Input
+                                    key={cat}
+                                    label={`Preço ${cat} (R$)`}
+                                    type="number"
+                                    step="0.01"
+                                    value={serviceForm.prices?.[cat] || ''}
+                                    onChange={e => setServiceForm(prev => ({
+                                        ...prev,
+                                        prices: { ...prev.prices, [cat]: parseFloat(e.target.value) || 0 }
+                                    }))}
+                                    required
+                                    className="bg-gray-50"
+                                />
+                            ))}
+                        </div>
                         <div className="flex flex-col">
                             <label className="text-sm font-semibold text-brand-blue mb-2">Descrição</label>
                             <textarea
