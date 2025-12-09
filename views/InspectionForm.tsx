@@ -534,17 +534,20 @@ export const InspectionForm: React.FC<InspectionFormProps> = ({
                                         const sel = formData.selectedServices.find(s => s.name === service.name);
                                         if (sel) {
                                             return (
-                                                <div className="flex items-center space-x-1">
-                                                    <span className="text-xs text-gray-500">R$</span>
-                                                    <input
-                                                        type="number"
-                                                        step="0.01"
-                                                        value={sel.chargedValue}
-                                                        onChange={(e) => updateServiceValue(formData.selectedServices.findIndex(s => s.name === service.name), 'chargedValue', parseFloat(e.target.value) || 0)}
-                                                        className={`text-xs w-16 px-1 py-0.5 border rounded ${serviceErrors[service.name] ? 'border-red-500' : sel.chargedValue > 0 ? 'border-green-500' : 'border-gray-300'}`}
-                                                        disabled={!canEditStep1}
-                                                    />
-                                                    <Edit2 size={12} className="text-gray-500" />
+                                                <div className="flex flex-col space-y-1">
+                                                    <span className="text-xs text-gray-500">Base: R$ {sel.baseValue.toFixed(2)}</span>
+                                                    <div className="flex items-center space-x-1">
+                                                        <span className="text-xs text-gray-500">Cobrado: R$</span>
+                                                        <input
+                                                            type="number"
+                                                            step="0.01"
+                                                            value={sel.chargedValue}
+                                                            onChange={(e) => updateServiceValue(formData.selectedServices.findIndex(s => s.name === service.name), 'chargedValue', parseFloat(e.target.value) || 0)}
+                                                            className={`text-xs w-16 px-1 py-0.5 border rounded ${serviceErrors[service.name] ? 'border-red-500' : sel.chargedValue > 0 ? 'border-green-500' : 'border-gray-300'}`}
+                                                            disabled={!canEditStep1}
+                                                        />
+                                                        <Edit2 size={12} className="text-gray-500" />
+                                                    </div>
                                                 </div>
                                             );
                                         } else {
