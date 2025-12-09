@@ -416,7 +416,9 @@ export const InspectionList: React.FC<InspectionListProps> = ({ inspections, onE
                                 </td>
                                 <td className="p-4">
                                     <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold border ${
-                                        item.status === 'Concluída'
+                                        item.paymentStatus === 'A pagar'
+                                            ? 'bg-red-50 text-red-700 border-red-100'
+                                            : item.status === 'Concluída'
                                             ? 'bg-green-50 text-green-700 border-green-100'
                                             : item.status === 'No Caixa'
                                             ? 'bg-yellow-50 text-yellow-700 border-yellow-100'
@@ -425,12 +427,13 @@ export const InspectionList: React.FC<InspectionListProps> = ({ inspections, onE
                                             : 'bg-gray-100 text-gray-600 border-gray-200'
                                     }`}>
                                         <span className={`w-1.5 h-1.5 rounded-full mr-1.5 ${
+                                            item.paymentStatus === 'A pagar' ? 'bg-red-500' :
                                             item.status === 'Concluída' ? 'bg-green-500' :
                                             item.status === 'No Caixa' ? 'bg-yellow-500' :
                                             item.status === 'Iniciada' ? 'bg-red-500' :
                                             'bg-gray-500'
                                         }`}></span>
-                                        {item.status === 'Iniciada' ? 'Pagamentos Pendentes' : item.status}
+                                        {item.paymentStatus === 'A pagar' ? 'Pagamento Pendente' : item.status === 'Iniciada' ? 'Pagamentos Pendentes' : item.status}
                                     </span>
                                 </td>
                                 <td className="p-4 text-center">
