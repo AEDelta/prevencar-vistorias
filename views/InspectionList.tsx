@@ -441,7 +441,7 @@ export const InspectionList: React.FC<InspectionListProps> = ({ inspections, onE
                                             item.status === 'Iniciada' ? 'bg-red-500' :
                                             'bg-gray-500'
                                         }`}></span>
-                                        {item.paymentStatus === 'A pagar' ? 'Pagamento Pendente' : item.status === 'Iniciada' ? 'Pagamentos Pendentes' : item.status}
+                                        {item.status === 'No Caixa' ? 'No Caixa' : item.paymentStatus === 'A pagar' ? 'Pagamento Pendente' : item.status === 'Iniciada' ? 'Pagamentos Pendentes' : item.status}
                                     </span>
                                 </td>
                                 <td className="p-4 text-center">
