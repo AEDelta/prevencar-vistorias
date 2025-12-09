@@ -590,7 +590,7 @@ export const InspectionForm: React.FC<InspectionFormProps> = ({
                                     const value = parseFloat(customServiceValue);
                                     if (value > 0) {
                                         const newService: SelectedService = {
-                                            name: customServiceName.trim(),
+                                            name: "Outros: " + customServiceName.trim(),
                                             baseValue: value,
                                             chargedValue: value
                                         };
@@ -631,10 +631,13 @@ export const InspectionForm: React.FC<InspectionFormProps> = ({
                                                 type="number"
                                                 step="0.01"
                                                 value={sel.chargedValue}
+                                                onChange={e => updateServiceValue(index, 'chargedValue', parseFloat(e.target.value) || 0)}
                                                 className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-blue"
-                                                readOnly
+                                                disabled={!canEditStep1}
                                             />
-                                            <p className="text-xs text-gray-500 mt-1">Edite na caixa do serviço acima</p>
+                                            {MOCK_SERVICES.find(s => s.name === sel.name) && (
+                                                <p className="text-xs text-gray-500 mt-1">Edite na caixa do serviço acima</p>
+                                            )}
                                         </div>
                                     </div>
                                 </div>
