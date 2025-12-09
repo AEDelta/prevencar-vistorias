@@ -106,6 +106,7 @@ const App: React.FC = () => {
   const [services, setServices] = useLocalStorage<ServiceItem[]>('prevencar_services', INITIAL_SERVICES);
 
   const [editingInspection, setEditingInspection] = useState<Inspection | null>(null);
+  const [editOptions, setEditOptions] = useState<{ initialStep?: number; focusField?: string } | undefined>(undefined);
 
   const useFirestore = Boolean(import.meta.env.VITE_FIREBASE_PROJECT_ID);
 
@@ -222,8 +223,9 @@ const App: React.FC = () => {
     setCurrentView(ViewState.INSPECTION_FORM);
   };
 
-  const handleEditInspection = (inspection: Inspection) => {
+  const handleEditInspection = (inspection: Inspection, options?: { initialStep?: number; focusField?: string }) => {
     setEditingInspection(inspection);
+    setEditOptions(options);
     setCurrentView(ViewState.INSPECTION_FORM);
   };
 
@@ -426,12 +428,13 @@ const App: React.FC = () => {
       case ViewState.INSPECTION_FORM:
         return (
           <Layout currentView={currentView} changeView={setCurrentView} logout={handleLogout} currentUser={currentUser}>
-            <InspectionForm 
+            <InspectionForm
               inspectionToEdit={editingInspection}
               onSave={handleSaveInspection}
-              onCancel={() => setCurrentView(ViewState.INSPECTION_LIST)} 
+              onCancel={() => setCurrentView(ViewState.INSPECTION_LIST)}
               onDelete={handleDeleteInspection}
               currentUser={currentUser}
+              options={editOptions}
             />
           </Layout>
         );

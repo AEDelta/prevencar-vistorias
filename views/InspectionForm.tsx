@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Inspection, PaymentMethod, Inspector, Indication, User, VehicleCategory, SelectedService } from '../types';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
-import { ArrowLeft, Save, ArrowRight, DollarSign, Send, CheckSquare, Square, Trash2, FileText, Download } from 'lucide-react';
+import { ArrowLeft, Save, ArrowRight, DollarSign, Send, CheckSquare, Square, Trash2, FileText, Download, Edit2, CheckCircle, XCircle } from 'lucide-react';
 import { MOCK_INDICATIONS, MOCK_SERVICES } from './Management';
 import { exportInspectionDetailToPDF } from '../utils/exportUtils';
 
@@ -13,6 +13,7 @@ interface InspectionFormProps {
   onDelete?: (id: string) => void;
   readOnly?: boolean;
   currentUser?: User;
+  options?: { initialStep?: number; focusField?: string };
 }
 
 // Masks helpers
@@ -53,17 +54,38 @@ const maskPhone = (value: string) => {
         .slice(0, 15);
 };
 
+const validateNfe = (value: string): string | null => {
+    if (!value.trim()) return null; // Allow empty
+    const cleaned = value.replace(/\D/g, '');
+    if (cleaned.length < 8) return 'NF-e deve ter pelo menos 8 dígitos numéricos';
+    if (cleaned !== value.replace(/\D/g, '')) return 'Apenas números são permitidos';
+    return null;
+};
+
+const validatePlate = (value: string): string | null => {
+    if (!value.trim()) return 'Placa é obrigatória';
+    const cleaned = value.toUpperCase().replace(/[^A-Z0-9]/g, '');
+    if (cleaned.length !== 7) return 'Placa deve ter 7 caracteres';
+    const regex = /^[A-Z]{3}\d{4}$|^[A-Z]{3}\d[A-Z]\d{2}$/;
+    if (!regex.test(cleaned)) return 'Formato inválido. Use ABC1234 ou ABC1D34';
+    return null;
+};
+
 export const InspectionForm: React.FC<InspectionFormProps> = ({
     inspectionToEdit,
     onSave,
     onCancel,
     onDelete,
     readOnly = false,
-    currentUser
+    currentUser,
+    options
 }) => {
     const [step, setStep] = useState(1);
     const [isLoadingCep, setIsLoadingCep] = useState(false);
     const [isStep1Complete, setIsStep1Complete] = useState(false);
+    const [nfeError, setNfeError] = useState<string | null>(null);
+    const [plateError, setPlateError] = useState<string | null>(null);
+    const [serviceErrors, setServiceErrors] = useState<{ [serviceName: string]: string | null }>({});
     const canEditStep1 = !readOnly && (!(inspectionToEdit?.status === 'Concluída') || currentUser?.role === 'admin');
   const [formData, setFormData] = useState<Partial<Inspection>>({
     date: new Date().toISOString().split('T')[0],
@@ -84,11 +106,20 @@ export const InspectionForm: React.FC<InspectionFormProps> = ({
   useEffect(() => {
     if (inspectionToEdit) {
       setFormData(inspectionToEdit);
-        } else if (currentUser) {
+      if (options?.initialStep) {
+        setStep(options.initialStep);
+      }
+      if (inspectionToEdit.nfe) {
+        setNfeError(validateNfe(inspectionToEdit.nfe));
+      }
+      if (inspectionToEdit.licensePlate) {
+        setPlateError(validatePlate(inspectionToEdit.licensePlate));
+      }
+    } else if (currentUser) {
             const firstName = currentUser.name.split(' ')[0];
             setFormData(prev => ({ ...prev, inspector: firstName }));
     }
-  }, [inspectionToEdit, currentUser]);
+  }, [inspectionToEdit, currentUser, options]);
 
   // Update service base values when category changes
   useEffect(() => {
@@ -144,6 +175,16 @@ export const InspectionForm: React.FC<InspectionFormProps> = ({
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
+  const handleNfeChange = (value: string) => {
+    handleChange('nfe', value);
+    setNfeError(validateNfe(value));
+  };
+
+  const handlePlateChange = (value: string) => {
+    handleChange('licensePlate', value.toUpperCase());
+    setPlateError(validatePlate(value));
+  };
+
   const handleClientChange = (field: string, value: string) => {
     setFormData(prev => ({
       ...prev,
@@ -157,6 +198,11 @@ export const InspectionForm: React.FC<InspectionFormProps> = ({
       newServices[index] = { ...newServices[index], [field]: value };
       return { ...prev, selectedServices: newServices };
     });
+    if (field === 'chargedValue') {
+      const serviceName = formData.selectedServices[index].name;
+      const error = value <= 0 ? 'Valor deve ser maior que 0' : null;
+      setServiceErrors(prev => ({ ...prev, [serviceName]: error }));
+    }
   };
 
   const handleIndicationChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -385,15 +431,33 @@ export const InspectionForm: React.FC<InspectionFormProps> = ({
                          required
                          disabled={!canEditStep1}
                      />
-                    <Input
-                        label="Placa"
-                        value={formData.licensePlate || ''}
-                        onChange={e => handleChange('licensePlate', e.target.value.toUpperCase())}
-                        required
-                        maxLength={8}
-                        placeholder="ABC-1234"
-                        disabled={!canEditStep1}
-                    />
+                    <div>
+                        <Input
+                            label="Placa"
+                            value={formData.licensePlate || ''}
+                            onChange={e => handlePlateChange(e.target.value)}
+                            required
+                            maxLength={8}
+                            placeholder="ABC-1234 ou ABC1D34"
+                            className={formData.licensePlate ? (plateError ? 'border-red-500' : 'border-green-500') : ''}
+                            disabled={!canEditStep1}
+                        />
+                        {formData.licensePlate && (
+                            <div className="flex items-center mt-1">
+                                {plateError ? (
+                                    <>
+                                        <XCircle size={16} className="text-red-500 mr-1" />
+                                        <span className="text-red-500 text-xs">{plateError}</span>
+                                    </>
+                                ) : (
+                                    <>
+                                        <CheckCircle size={16} className="text-green-500 mr-1" />
+                                        <span className="text-green-500 text-xs">Placa válida</span>
+                                    </>
+                                )}
+                            </div>
+                        )}
+                    </div>
                     <Input
                         label="Data"
                         type="date"
@@ -469,7 +533,20 @@ export const InspectionForm: React.FC<InspectionFormProps> = ({
                                     {(() => {
                                         const sel = formData.selectedServices.find(s => s.name === service.name);
                                         if (sel) {
-                                            return <span className="text-xs text-green-600 font-bold">R$ {sel.chargedValue.toFixed(2)}</span>;
+                                            return (
+                                                <div className="flex items-center space-x-1">
+                                                    <span className="text-xs text-gray-500">R$</span>
+                                                    <input
+                                                        type="number"
+                                                        step="0.01"
+                                                        value={sel.chargedValue}
+                                                        onChange={(e) => updateServiceValue(formData.selectedServices.findIndex(s => s.name === service.name), 'chargedValue', parseFloat(e.target.value) || 0)}
+                                                        className={`text-xs w-16 px-1 py-0.5 border rounded ${serviceErrors[service.name] ? 'border-red-500' : sel.chargedValue > 0 ? 'border-green-500' : 'border-gray-300'}`}
+                                                        disabled={!canEditStep1}
+                                                    />
+                                                    <Edit2 size={12} className="text-gray-500" />
+                                                </div>
+                                            );
                                         } else {
                                             const indication = MOCK_INDICATIONS.find(i => i.id === formData.indicationId);
                                             const override = indication?.servicePrices ? indication.servicePrices[service.id] : undefined;
@@ -500,14 +577,17 @@ export const InspectionForm: React.FC<InspectionFormProps> = ({
                                             onChange={e => updateServiceValue(index, 'baseValue', parseFloat(e.target.value) || 0)}
                                             disabled={!canEditStep1}
                                         />
-                                        <Input
-                                            label="Valor Cobrado"
-                                            type="number"
-                                            step="0.01"
-                                            value={sel.chargedValue}
-                                            onChange={e => updateServiceValue(index, 'chargedValue', parseFloat(e.target.value) || 0)}
-                                            disabled={!canEditStep1}
-                                        />
+                                        <div>
+                                            <label className="text-sm font-semibold text-brand-blue mb-1">Valor Cobrado</label>
+                                            <input
+                                                type="number"
+                                                step="0.01"
+                                                value={sel.chargedValue}
+                                                className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-blue"
+                                                readOnly
+                                            />
+                                            <p className="text-xs text-gray-500 mt-1">Edite na caixa do serviço acima</p>
+                                        </div>
                                     </div>
                                 </div>
                             ))}
@@ -600,7 +680,7 @@ export const InspectionForm: React.FC<InspectionFormProps> = ({
                         <Button type="button" onClick={handleSendToCashier} className={`bg-orange-500 hover:bg-orange-600 flex-1 md:flex-none ${!isStep1Complete ? 'opacity-50 cursor-not-allowed' : ''}`} disabled={!isStep1Complete}>
                             <Send size={18} className="mr-2" /> Enviar para Caixa
                         </Button>
-                        {(currentUser?.role === 'admin' || currentUser?.role === 'financeiro') && (
+                        {(currentUser?.role === 'admin' || currentUser?.role === 'financeiro' || currentUser?.role === 'vistoriador') && (
                             <Button type="button" onClick={handleFinishPayment} className={`flex-1 md:flex-none ${!isStep1Complete ? 'opacity-50 cursor-not-allowed' : ''}`} disabled={!isStep1Complete}>
                                 Finalizar Pagamento <ArrowRight size={18} className="ml-2" />
                             </Button>
@@ -709,12 +789,30 @@ export const InspectionForm: React.FC<InspectionFormProps> = ({
                             </select>
                         </div>
 
-                        <Input
-                            label="Nota Fiscal Eletrônica (NFe)"
-                            value={formData.nfe || ''}
-                            onChange={e => handleChange('nfe', e.target.value)}
-                            placeholder="Número da nota"
-                        />
+                        <div>
+                            <Input
+                                label="Nota Fiscal Eletrônica (NFe)"
+                                value={formData.nfe || ''}
+                                onChange={e => handleNfeChange(e.target.value)}
+                                placeholder="Número da nota"
+                                className={formData.nfe ? (nfeError ? 'border-red-500' : 'border-green-500') : ''}
+                            />
+                            {formData.nfe && (
+                                <div className="flex items-center mt-1">
+                                    {nfeError ? (
+                                        <>
+                                            <XCircle size={16} className="text-red-500 mr-1" />
+                                            <span className="text-red-500 text-xs">{nfeError}</span>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <CheckCircle size={16} className="text-green-500 mr-1" />
+                                            <span className="text-green-500 text-xs">NF-e válida</span>
+                                        </>
+                                    )}
+                                </div>
+                            )}
+                        </div>
                         <Input
                             label="Contato (Telefone/Celular)"
                             value={formData.contact || ''}

@@ -405,6 +405,15 @@ export const InspectionList: React.FC<InspectionListProps> = ({ inspections, onE
                                     {isVistoriador ? 'R$ ***' : formatCurrency(item.totalValue)}
                                 </td>
                                 <td className="p-4">
+                                    {item.nfe ? (
+                                        <span className="text-green-600 font-semibold">Emitida</span>
+                                    ) : (
+                                        <Button onClick={() => onEdit(item, { initialStep: 2, focusField: 'nfe' })} variant="outline" className="text-xs px-2 py-1">
+                                            Não emitida
+                                        </Button>
+                                    )}
+                                </td>
+                                <td className="p-4">
                                     <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold border ${
                                         item.status === 'Concluída'
                                             ? 'bg-green-50 text-green-700 border-green-100'
@@ -480,7 +489,7 @@ export const InspectionList: React.FC<InspectionListProps> = ({ inspections, onE
                             </tr>
                         )) : (
                             <tr>
-                                <td colSpan={8} className="p-12 text-center">
+                                <td colSpan={10} className="p-12 text-center">
                                     <div className="flex flex-col items-center justify-center text-gray-400">
                                         <Search size={48} className="mb-4 opacity-20" />
                                         <p className="text-lg font-medium text-gray-500">Nenhum resultado encontrado</p>
