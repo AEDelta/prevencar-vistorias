@@ -74,7 +74,8 @@ export const InspectionList: React.FC<InspectionListProps> = ({ inspections, onE
   // Totals Calculation
   const totalValue = filtered.reduce((acc, curr) => acc + (curr.totalValue || 0), 0);
     const totalPaid = filtered.filter(i => i.paymentStatus && i.paymentStatus !== 'A pagar' && i.status === 'Concluída').reduce((acc, curr) => acc + (curr.totalValue || 0), 0);
-    const totalPending = filtered.filter(i => i.paymentStatus === 'A pagar').reduce((acc, curr) => acc + (curr.totalValue || 0), 0);
+    const totalPendingAtCashier = filtered.filter(i => i.status === 'No Caixa' && i.paymentStatus === 'A pagar').reduce((acc, curr) => acc + (curr.totalValue || 0), 0);
+    const totalPendingOther = filtered.filter(i => i.status !== 'No Caixa' && i.paymentStatus === 'A pagar').reduce((acc, curr) => acc + (curr.totalValue || 0), 0);
 
   // Counts
   const totalCount = filtered.length;
@@ -165,7 +166,7 @@ export const InspectionList: React.FC<InspectionListProps> = ({ inspections, onE
 
         {/* Financial Summary Cards - HIDDEN FOR VISTORIADOR */}
         {!isVistoriador && (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
                     <p className="text-gray-500 text-xs uppercase font-bold">Total Filtrado</p>
                     <p className="text-2xl font-bold text-brand-blue">{formatCurrency(totalValue)}</p>
@@ -175,8 +176,12 @@ export const InspectionList: React.FC<InspectionListProps> = ({ inspections, onE
                     <p className="text-2xl font-bold text-green-700">{formatCurrency(totalPaid)}</p>
                 </div>
                 <div className="bg-orange-50 p-4 rounded-xl shadow-sm border border-orange-100">
-                    <p className="text-orange-600 text-xs uppercase font-bold">Pendente / No Caixa</p>
-                    <p className="text-2xl font-bold text-orange-700">{formatCurrency(totalPending)}</p>
+                    <p className="text-orange-600 text-xs uppercase font-bold">No Caixa (Pendente)</p>
+                    <p className="text-2xl font-bold text-orange-700">{formatCurrency(totalPendingAtCashier)}</p>
+                </div>
+                <div className="bg-red-50 p-4 rounded-xl shadow-sm border border-red-100">
+                    <p className="text-red-600 text-xs uppercase font-bold">Outros Pendentes</p>
+                    <p className="text-2xl font-bold text-red-700">{formatCurrency(totalPendingOther)}</p>
                 </div>
             </div>
         )}
