@@ -179,7 +179,7 @@ export const InspectionList: React.FC<InspectionListProps> = ({ inspections, onE
                 <div className="bg-orange-50 p-4 rounded-xl shadow-sm border border-orange-100">
                     <p className="text-orange-600 text-xs uppercase font-bold">No Caixa (Pendente)</p>
                     <p className="text-2xl font-bold text-orange-700">{formatCurrency(totalPendingAtCashier)}</p>
-                    <p className="text-xs text-orange-600">Forma não selecionada</p>
+                    <p className="text-xs text-orange-600">Forma: Não selecionada</p>
                 </div>
                 <div className="bg-red-50 p-4 rounded-xl shadow-sm border border-red-100">
                     <p className="text-red-600 text-xs uppercase font-bold">Outros Pendentes</p>
