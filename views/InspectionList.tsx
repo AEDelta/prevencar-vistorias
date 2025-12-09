@@ -330,6 +330,7 @@ export const InspectionList: React.FC<InspectionListProps> = ({ inspections, onE
                             <th className="p-4">Vistoriador</th>
                             <th className="p-4">Pagamento</th>
                             <th className="p-4">Valor</th>
+                            <th className="p-4">NF-e</th>
                             <th className="p-4">Status</th>
                             <th className="p-4 text-center">
                                 <input

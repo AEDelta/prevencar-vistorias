@@ -203,7 +203,8 @@ export const InspectionForm: React.FC<InspectionFormProps> = ({
                 ...prev,
                 indicationId: undefined,
                 indicationName: undefined,
-                selectedServices: updatedServices
+                selectedServices: updatedServices,
+                client: { name: '', cpf: '', address: '', cep: '', number: '', complement: '' }
             };
         });
     }
