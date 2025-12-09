@@ -174,14 +174,17 @@ export const InspectionList: React.FC<InspectionListProps> = ({ inspections, onE
                 <div className="bg-green-50 p-4 rounded-xl shadow-sm border border-green-100">
                     <p className="text-green-600 text-xs uppercase font-bold">Total Pago (Concluído)</p>
                     <p className="text-2xl font-bold text-green-700">{formatCurrency(totalPaid)}</p>
+                    <p className="text-xs text-green-600">Formas: Débito, Crédito, Dinheiro, Pix</p>
                 </div>
                 <div className="bg-orange-50 p-4 rounded-xl shadow-sm border border-orange-100">
                     <p className="text-orange-600 text-xs uppercase font-bold">No Caixa (Pendente)</p>
                     <p className="text-2xl font-bold text-orange-700">{formatCurrency(totalPendingAtCashier)}</p>
+                    <p className="text-xs text-orange-600">Forma não selecionada</p>
                 </div>
                 <div className="bg-red-50 p-4 rounded-xl shadow-sm border border-red-100">
                     <p className="text-red-600 text-xs uppercase font-bold">Outros Pendentes</p>
                     <p className="text-2xl font-bold text-red-700">{formatCurrency(totalPendingOther)}</p>
+                    <p className="text-xs text-red-600">Forma: A pagar</p>
                 </div>
             </div>
         )}
@@ -372,7 +375,7 @@ export const InspectionList: React.FC<InspectionListProps> = ({ inspections, onE
                                 </td>
                                 <td className="p-4 text-sm text-gray-600">{item.inspector || '-'}</td>
                                 <td className="p-4 text-sm text-gray-600">
-                                    {(currentUser?.role === 'admin' || currentUser?.role === 'financeiro') && item.status === 'No Caixa' && item.paymentStatus === 'A pagar' ? (
+                                    {(currentUser?.role === 'admin' || currentUser?.role === 'financeiro') && item.paymentStatus === 'A pagar' ? (
                                         editingPaymentId === item.id ? (
                                             <select
                                                 className="w-full px-2 py-1 border rounded text-xs"
