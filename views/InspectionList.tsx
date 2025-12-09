@@ -158,7 +158,7 @@ export const InspectionList: React.FC<InspectionListProps> = ({ inspections, onE
                 <p className="text-3xl font-bold text-yellow-700">{awaitingCount}</p>
             </div>
             <div className="bg-red-50 p-4 rounded-xl shadow-sm border border-red-100">
-                <p className="text-red-600 text-xs uppercase font-bold">Iniciadas</p>
+                <p className="text-red-600 text-xs uppercase font-bold">Pagamentos Pendentes</p>
                 <p className="text-3xl font-bold text-red-700">{pendingCount}</p>
             </div>
         </div>
@@ -218,7 +218,7 @@ export const InspectionList: React.FC<InspectionListProps> = ({ inspections, onE
                             <label className="text-xs font-bold text-gray-500">Status</label>
                             <select className="w-full px-3 py-2 border rounded-lg text-sm" value={filterStatus} onChange={(e: any) => setFilterStatus(e.target.value)}>
                                 <option value="Todos">Todos</option>
-                                <option value="Iniciada">Iniciada</option>
+                                <option value="Iniciada">Pagamentos Pendentes</option>
                                 <option value="No Caixa">No Caixa</option>
                                 <option value="Concluída">Concluída</option>
                             </select>
@@ -429,7 +429,7 @@ export const InspectionList: React.FC<InspectionListProps> = ({ inspections, onE
                                             item.status === 'Iniciada' ? 'bg-red-500' :
                                             'bg-gray-500'
                                         }`}></span>
-                                        {item.status}
+                                        {item.status === 'Iniciada' ? 'Pagamentos Pendentes' : item.status}
                                     </span>
                                 </td>
                                 <td className="p-4 text-center">
