@@ -79,7 +79,7 @@ export const InspectionList: React.FC<InspectionListProps> = ({ inspections, onE
   // Counts
   const totalCount = filtered.length;
   const completedCount = filtered.filter(i => i.status === 'Concluída').length;
-  const pendingCount = filtered.filter(i => i.status === 'Iniciada').length;
+  const pendingPaymentCount = filtered.filter(i => i.paymentStatus === 'A pagar').length;
   const awaitingCount = filtered.filter(i => i.status === 'No Caixa').length;
 
   const handleExport = async (type: 'pdf' | 'excel') => {
@@ -159,7 +159,7 @@ export const InspectionList: React.FC<InspectionListProps> = ({ inspections, onE
             </div>
             <div className="bg-red-50 p-4 rounded-xl shadow-sm border border-red-100">
                 <p className="text-red-600 text-xs uppercase font-bold">Pagamentos Pendentes</p>
-                <p className="text-3xl font-bold text-red-700">{pendingCount}</p>
+                <p className="text-3xl font-bold text-red-700">{pendingPaymentCount}</p>
             </div>
         </div>
 
