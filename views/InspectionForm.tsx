@@ -63,11 +63,9 @@ const validateNfe = (value: string): string | null => {
 };
 
 const validatePlate = (value: string): string | null => {
-    if (!value.trim()) return 'Placa é obrigatória';
+    if (!value.trim()) return 'Identificação do veículo é obrigatória';
     const cleaned = value.toUpperCase().replace(/[^A-Z0-9]/g, '');
-    if (cleaned.length !== 7) return 'Placa deve ter 7 caracteres';
-    const regex = /^[A-Z]{3}\d{4}$|^[A-Z]{3}\d[A-Z]\d{2}$/;
-    if (!regex.test(cleaned)) return 'Formato inválido. Use ABC1234 ou ABC1D34';
+    if (cleaned.length < 7) return 'Identificação deve ter pelo menos 7 caracteres alfanuméricos';
     return null;
 };
 
@@ -427,18 +425,18 @@ export const InspectionForm: React.FC<InspectionFormProps> = ({
                      <Input
                          label="Modelo do Veículo"
                          value={formData.vehicleModel || ''}
-                         onChange={e => handleChange('vehicleModel', e.target.value)}
+                         onChange={e => handleChange('vehicleModel', e.target.value.toUpperCase())}
                          required
                          disabled={!canEditStep1}
                      />
                     <div>
                         <Input
-                            label="Placa"
+                            label="Identificação do Veículo (Placa/Chassi/Motor)"
                             value={formData.licensePlate || ''}
                             onChange={e => handlePlateChange(e.target.value)}
                             required
-                            maxLength={8}
-                            placeholder="ABC-1234 ou ABC1D34"
+                            maxLength={17} // Chassi is 17 chars
+                            placeholder="ABC-1234, ABC1D34, Chassi ou Motor"
                             className={formData.licensePlate ? (plateError ? 'border-red-500' : 'border-green-500') : ''}
                             disabled={!canEditStep1}
                         />
