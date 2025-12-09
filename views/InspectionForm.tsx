@@ -218,7 +218,8 @@ export const InspectionForm: React.FC<InspectionFormProps> = ({
             const updatedServices = prev.selectedServices.map(sel => {
                 const service = services.find(s => s.name === sel.name);
                 if (service) {
-                    const base = service.prices[prev.vehicleCategory!] || 0;
+                    const category = prev.vehicleCategory || 'Automóveis';
+                    const base = service.prices[category] || 0;
                     const charged = indication.servicePrices ? indication.servicePrices[service.id] : base;
                     return { ...sel, baseValue: base, chargedValue: charged };
                 }
@@ -246,7 +247,8 @@ export const InspectionForm: React.FC<InspectionFormProps> = ({
             const updatedServices = prev.selectedServices.map(sel => {
                 const service = services.find(s => s.name === sel.name);
                 if (service) {
-                    const base = service.prices[prev.vehicleCategory!] || 0;
+                    const category = prev.vehicleCategory || 'Automóveis';
+                    const base = service.prices[category] || 0;
                     return { ...sel, baseValue: base, chargedValue: base };
                 }
                 return sel;
@@ -270,7 +272,8 @@ export const InspectionForm: React.FC<InspectionFormProps> = ({
               return { ...prev, selectedServices: current.filter(s => s.name !== serviceName) };
           } else {
               const service = services.find(s => s.name === serviceName);
-              const base = service?.prices[formData.vehicleCategory!] || 0;
+              const category = prev.vehicleCategory || 'Automóveis';
+              const base = service?.prices[category] || 0;
               const indication = indications.find(i => i.id === prev.indicationId);
               const charged = indication?.servicePrices ? indication.servicePrices[service.id] : base;
               return { ...prev, selectedServices: [...current, { name: serviceName, baseValue: base, chargedValue: charged }] };
@@ -562,7 +565,8 @@ export const InspectionForm: React.FC<InspectionFormProps> = ({
                                         } else {
                                             const indication = indications.find(i => i.id === formData.indicationId);
                                             const override = indication?.servicePrices ? indication.servicePrices[service.id] : undefined;
-                                            const displayPrice = typeof override === 'number' ? override : (service.prices[formData.vehicleCategory || 'Automóveis'] || 0);
+                                            const category = formData.vehicleCategory || 'Automóveis';
+                                            const displayPrice = typeof override === 'number' ? override : (service.prices[category] || 0);
                                             return <span className="text-xs text-green-600 font-bold">R$ {displayPrice.toFixed(2)}</span>;
                                         }
                                     })()}
