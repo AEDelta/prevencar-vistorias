@@ -372,7 +372,7 @@ export const InspectionList: React.FC<InspectionListProps> = ({ inspections, onE
                                 </td>
                                 <td className="p-4 text-sm text-gray-600">{item.inspector || '-'}</td>
                                 <td className="p-4 text-sm text-gray-600">
-                                    {(currentUser?.role === 'admin' || currentUser?.role === 'financeiro') && item.paymentStatus === 'A pagar' ? (
+                                    {(currentUser?.role === 'admin' || currentUser?.role === 'financeiro') && item.status === 'No Caixa' && item.paymentStatus === 'A pagar' ? (
                                         editingPaymentId === item.id ? (
                                             <select
                                                 className="w-full px-2 py-1 border rounded text-xs"
