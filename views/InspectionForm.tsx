@@ -84,6 +84,8 @@ export const InspectionForm: React.FC<InspectionFormProps> = ({
     const [nfeError, setNfeError] = useState<string | null>(null);
     const [plateError, setPlateError] = useState<string | null>(null);
     const [serviceErrors, setServiceErrors] = useState<{ [serviceName: string]: string | null }>({});
+    const [customServiceName, setCustomServiceName] = useState('');
+    const [customServiceValue, setCustomServiceValue] = useState('');
     const canEditStep1 = !readOnly && (!(inspectionToEdit?.status === 'Concluída') || currentUser?.role === 'admin');
   const [formData, setFormData] = useState<Partial<Inspection>>({
     date: new Date().toISOString().split('T')[0],
@@ -558,6 +560,51 @@ export const InspectionForm: React.FC<InspectionFormProps> = ({
                                 </div>
                             </div>
                         ))}
+                    </div>
+
+                    {/* Section: Serviço Adicional */}
+                    <div className="mt-6 pt-6 border-t">
+                        <h3 className="text-lg font-bold text-brand-red mb-4">Serviço Adicional (Opcional)</h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <Input
+                                label="Nome do Serviço"
+                                value={customServiceName}
+                                onChange={e => setCustomServiceName(e.target.value)}
+                                placeholder="Ex: Lavagem especializada"
+                                disabled={!canEditStep1}
+                            />
+                            <Input
+                                label="Valor"
+                                type="number"
+                                step="0.01"
+                                value={customServiceValue}
+                                onChange={e => setCustomServiceValue(e.target.value)}
+                                placeholder="0.00"
+                                disabled={!canEditStep1}
+                            />
+                        </div>
+                        <Button
+                            type="button"
+                            onClick={() => {
+                                if (customServiceName.trim() && customServiceValue) {
+                                    const value = parseFloat(customServiceValue);
+                                    if (value > 0) {
+                                        const newService: SelectedService = {
+                                            name: customServiceName.trim(),
+                                            baseValue: value,
+                                            chargedValue: value
+                                        };
+                                        handleChange('selectedServices', [...(formData.selectedServices || []), newService]);
+                                        setCustomServiceName('');
+                                        setCustomServiceValue('');
+                                    }
+                                }
+                            }}
+                            className="mt-4"
+                            disabled={!canEditStep1 || !customServiceName.trim() || !customServiceValue}
+                        >
+                            Adicionar Serviço
+                        </Button>
                     </div>
                 </div>
 
