@@ -72,16 +72,16 @@ export const InspectionList: React.FC<InspectionListProps> = ({ inspections, onE
   });
 
   // Totals Calculation
-  const totalValue = filtered.reduce((acc, curr) => acc + (curr.totalValue || 0), 0);
-    const totalPaid = filtered.filter(i => i.paymentStatus && i.paymentStatus !== 'A pagar' && i.status === 'Concluída').reduce((acc, curr) => acc + (curr.totalValue || 0), 0);
-    const totalPendingAtCashier = filtered.filter(i => i.status === 'No Caixa' && i.paymentStatus === 'A pagar').reduce((acc, curr) => acc + (curr.totalValue || 0), 0);
-    const totalPendingOther = filtered.filter(i => i.status !== 'No Caixa' && i.paymentStatus === 'A pagar').reduce((acc, curr) => acc + (curr.totalValue || 0), 0);
+   const totalValue = inspections.reduce((acc, curr) => acc + (curr.totalValue || 0), 0);
+     const totalPaid = inspections.filter(i => i.paymentStatus && i.paymentStatus !== 'A pagar' && i.status === 'Concluída').reduce((acc, curr) => acc + (curr.totalValue || 0), 0);
+     const totalPendingAtCashier = inspections.filter(i => i.status === 'No Caixa' && i.paymentStatus === 'A pagar').reduce((acc, curr) => acc + (curr.totalValue || 0), 0);
+     const totalPendingOther = inspections.filter(i => i.status !== 'No Caixa' && i.paymentStatus === 'A pagar').reduce((acc, curr) => acc + (curr.totalValue || 0), 0);
 
   // Counts
-  const totalCount = filtered.length;
-  const completedCount = filtered.filter(i => i.status === 'Concluída').length;
-  const pendingPaymentCount = filtered.filter(i => i.paymentStatus === 'A pagar').length;
-  const awaitingCount = filtered.filter(i => i.status === 'No Caixa').length;
+  const totalCount = inspections.length;
+  const completedCount = inspections.filter(i => i.status === 'Concluída').length;
+  const pendingPaymentCount = inspections.filter(i => i.paymentStatus === 'A pagar').length;
+  const awaitingCount = inspections.filter(i => i.status === 'No Caixa').length;
 
   const handleExport = async (type: 'pdf' | 'excel') => {
     try {
@@ -168,7 +168,7 @@ export const InspectionList: React.FC<InspectionListProps> = ({ inspections, onE
         {!isVistoriador && (
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
-                    <p className="text-gray-500 text-xs uppercase font-bold">Total Filtrado</p>
+                    <p className="text-gray-500 text-xs uppercase font-bold">Total Geral</p>
                     <p className="text-2xl font-bold text-brand-blue">{formatCurrency(totalValue)}</p>
                 </div>
                 <div className="bg-green-50 p-4 rounded-xl shadow-sm border border-green-100">
