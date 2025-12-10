@@ -31,13 +31,13 @@ export const ForgotPassword: React.FC<ForgotPasswordProps> = ({ changeView }) =>
       await setDoc(doc(db, 'passwordResets', email), resetData);
       // Send email
       await emailjs.send(
-        'your_service_id', // Replace with your EmailJS service ID
-        'your_template_id', // Replace with your EmailJS template ID
+        import.meta.env.VITE_EMAILJS_SERVICE_ID,
+        import.meta.env.VITE_EMAILJS_TEMPLATE_ID,
         {
           to_email: email,
           code: code
         },
-        'your_public_key' // Replace with your EmailJS public key
+        import.meta.env.VITE_EMAILJS_PUBLIC_KEY
       );
       setStep(2);
     } catch (error) {
