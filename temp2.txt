@@ -1,0 +1,53 @@
+﻿                 <div className="mb-6 border-b pb-4 flex justify-between items-start">
+                     <div>
+                        <p className="text-gray-500 text-sm">InformaÃ§Ãµes de cadastro</p>
+                     </div>
+                     {isProfileReadOnly && (
+                         <div className="bg-blue-50 text-blue-700 text-xs px-3 py-2 rounded-lg flex items-center gap-2 border border-blue-100">
+                             <Lock size={14} /> <span>Modo Leitura</span>
+                         </div>
+                     )}
+                 </div>
+                 
+                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                         <Input 
+                            label="Nome" 
+                            value={profileForm.name || ''} 
+                            onChange={e => setProfileForm({...profileForm, name: e.target.value})} 
+                            className="bg-gray-50" 
+                            disabled={isProfileReadOnly}
+                        />
+                         <Input 
+                            label="Email" 
+                            value={profileForm.email || ''} 
+                            readOnly 
+                            className="bg-gray-100 text-gray-500 cursor-not-allowed" 
+                            disabled
+                        />
+                         <div className="md:col-span-2">
+                             <Input 
+                                label="Nova Senha (Opcional)" 
+                                type="password" 
+                                placeholder={isProfileReadOnly ? "AlteraÃ§Ã£o restrita ao administrador" : "Deixe em branco para manter a atual"} 
+                                value={profileForm.password || ''} 
+                                onChange={e => setProfileForm({...profileForm, password: e.target.value})} 
+                                className="bg-gray-50"
+                                disabled={isProfileReadOnly}
+                            />
+                         </div>
+                     </div>
+                     
+                     {!isProfileReadOnly ? (
+                        <div className="flex justify-end pt-4">
+                            <Button type="submit" className="bg-green-600 hover:bg-green-700">
+                                <Check size={18} className="mr-2" /> Salvar AlteraÃ§Ãµes
+                            </Button>
+                        </div>
+                     ) : (
+                         <div className="bg-yellow-50 p-4 rounded-lg flex items-start gap-3 text-yellow-700 text-sm border border-yellow-100">
+                             <AlertTriangle size={18} className="mt-0.5 shrink-0" />
+                         </div>
+                     )}
+                 </form>
+             </div>
+        )}

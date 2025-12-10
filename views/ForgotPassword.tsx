@@ -3,75 +3,44 @@ import { ViewState } from '../types';
 import { KeyRound, Check, Shield } from 'lucide-react';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
-import emailjs from '@emailjs/browser';
-import { doc, setDoc, getDoc } from 'firebase/firestore';
-import { db } from '../firebase';
+import { sendPasswordResetEmail } from 'firebase/auth';
+import { auth } from '../firebase';
 
 interface ForgotPasswordProps {
   changeView: (view: ViewState) => void;
 }
 
 export const ForgotPassword: React.FC<ForgotPasswordProps> = ({ changeView }) => {
-  const [step, setStep] = useState(1); // 1: Email, 2: Code, 3: New Password
+  const [step, setStep] = useState(1); // 1: Email, 2: Success, 3: Instructions
   const [email, setEmail] = useState('');
-  const [code, setCode] = useState('');
-  const [newPassword, setNewPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
 
   const handleSendEmail = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const code = Math.floor(100000 + Math.random() * 900000).toString();
-      const resetData = {
-        email,
-        code,
-        createdAt: new Date(),
-        expiresAt: new Date(Date.now() + 10 * 60 * 1000)
-      };
-      await setDoc(doc(db, 'passwordResets', email), resetData);
-      // Send email
-      await emailjs.send(
-        import.meta.env.VITE_EMAILJS_SERVICE_ID,
-        import.meta.env.VITE_EMAILJS_TEMPLATE_ID,
-        {
-          to_email: email,
-          code: code
-        },
-        import.meta.env.VITE_EMAILJS_PUBLIC_KEY
-      );
+      await sendPasswordResetEmail(auth, email);
+      alert('Email de redefinição de senha enviado! Verifique sua caixa de entrada.');
       setStep(2);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Erro ao enviar email:', error);
-      alert('Erro ao enviar email');
+      let message = 'Erro ao enviar email de redefinição de senha.';
+      if (error.code === 'auth/user-not-found') {
+        message = 'Email não encontrado. Verifique se o email está correto.';
+      } else if (error.code === 'auth/invalid-email') {
+        message = 'Email inválido.';
+      }
+      alert(message);
     }
   };
 
   const handleVerifyCode = async (e: React.FormEvent) => {
       e.preventDefault();
-      try {
-        const resetDoc = await getDoc(doc(db, 'passwordResets', email));
-        if (resetDoc.exists()) {
-          const data = resetDoc.data();
-          if (data.code === code && data.expiresAt.toDate() > new Date()) {
-            setStep(3);
-          } else {
-            alert('Código inválido ou expirado');
-          }
-        } else {
-          alert('Código inválido');
-        }
-      } catch (error) {
-        console.error('Erro ao verificar código:', error);
-        alert('Erro ao verificar código');
-      }
+      // Since Firebase handles the reset through email links,
+      // we just show a success message
+      alert('Verifique seu email e clique no link para redefinir sua senha.');
+      setStep(3);
   };
 
-  const handleResetPassword = async (e: React.FormEvent) => {
-      e.preventDefault();
-      // Since no backend, simulate success
-      alert('Senha alterada com sucesso');
-      setStep(4);
-  };
+
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-brand-bg p-4">
@@ -86,7 +55,7 @@ export const ForgotPassword: React.FC<ForgotPasswordProps> = ({ changeView }) =>
         {step === 1 && (
           <form onSubmit={handleSendEmail} className="space-y-6 animate-fade-in">
             <p className="text-gray-600 text-center">
-              Informe seu e-mail cadastrado para receber o código de verificação.
+              Informe seu e-mail cadastrado para receber o link de redefinição de senha.
             </p>
             <Input 
               label="E-mail" 
@@ -98,7 +67,7 @@ export const ForgotPassword: React.FC<ForgotPasswordProps> = ({ changeView }) =>
             />
             <div className="space-y-3">
               <Button type="submit" className="w-full">
-                Enviar Código
+                Enviar Link de Redefinição
               </Button>
               <Button 
                 type="button" 
@@ -113,60 +82,52 @@ export const ForgotPassword: React.FC<ForgotPasswordProps> = ({ changeView }) =>
         )}
 
         {step === 2 && (
-            <form onSubmit={handleVerifyCode} className="space-y-6 animate-fade-in">
-                <div className="text-center">
-                    <p className="text-gray-600">Enviamos um código para:</p>
-                    <p className="font-bold text-brand-blue mb-4">{email}</p>
+            <div className="space-y-6 animate-fade-in text-center">
+                <div className="bg-green-50 border border-green-200 text-green-700 p-6 rounded-lg">
+                    <Check size={48} className="mx-auto mb-4 text-green-600"/>
+                    <p className="font-bold text-lg mb-2">Email Enviado!</p>
+                    <p className="text-sm">Enviamos um link de redefinição de senha para:</p>
+                    <p className="font-bold text-brand-blue mt-2">{email}</p>
+                    <p className="text-sm mt-4">Verifique sua caixa de entrada e clique no link para redefinir sua senha.</p>
                 </div>
-                <Input 
-                    label="Código de Verificação" 
-                    type="text" 
-                    placeholder="000000" 
-                    value={code}
-                    onChange={(e) => setCode(e.target.value)}
-                    required
-                    maxLength={6}
-                    className="text-center text-lg tracking-widest"
-                />
                 <div className="space-y-3">
-                    <Button type="submit" className="w-full">
-                        Verificar Código
-                    </Button>
-                    <Button 
-                        type="button" 
-                        variant="outline" 
+                    <Button
+                        type="button"
+                        variant="outline"
                         className="w-full"
                         onClick={() => setStep(1)}
                     >
-                        Voltar
+                        Enviar Novamente
+                    </Button>
+                    <Button
+                        type="button"
+                        variant="outline"
+                        className="w-full"
+                        onClick={() => changeView(ViewState.LOGIN)}
+                    >
+                        Voltar ao Login
                     </Button>
                 </div>
-            </form>
+            </div>
         )}
 
         {step === 3 && (
-            <form onSubmit={handleResetPassword} className="space-y-6 animate-fade-in">
-                <p className="text-gray-600 text-center">
-                    Crie sua nova senha de acesso.
-                </p>
-                <Input 
-                    label="Nova Senha" 
-                    type="password" 
-                    placeholder="••••••••" 
-                    value={newPassword}
-                    onChange={(e) => setNewPassword(e.target.value)}
-                    required
-                />
-                 <Input 
-                    label="Confirmar Nova Senha" 
-                    type="password" 
-                    placeholder="••••••••" 
-                    required
-                />
-                <Button type="submit" className="w-full bg-green-600 hover:bg-green-700">
-                    <Check size={18} className="mr-2"/> Redefinir Senha
+            <div className="space-y-6 animate-fade-in text-center">
+                <div className="bg-blue-50 border border-blue-200 text-blue-700 p-6 rounded-lg">
+                    <Shield size={48} className="mx-auto mb-4 text-blue-600"/>
+                    <p className="font-bold text-lg mb-2">Próximos Passos</p>
+                    <p className="text-sm">1. Verifique seu email e clique no link de redefinição</p>
+                    <p className="text-sm">2. Você será redirecionado para uma página segura</p>
+                    <p className="text-sm">3. Digite sua nova senha</p>
+                    <p className="text-sm mt-4">O link é válido por 1 hora.</p>
+                </div>
+                <Button
+                    className="w-full"
+                    onClick={() => changeView(ViewState.LOGIN)}
+                >
+                    Voltar ao Login
                 </Button>
-            </form>
+            </div>
         )}
 
         {step === 4 && (
