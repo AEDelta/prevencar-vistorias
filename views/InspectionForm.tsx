@@ -320,7 +320,7 @@ export const InspectionForm: React.FC<InspectionFormProps> = ({
       onSave({
           ...formData,
           id: formData.id || Math.random().toString(36).substr(2, 9),
-          totalValue: formData.chargedValue || calculateTotal(),
+          totalValue: calculateTotal(),
           status: 'No Caixa',
           paymentStatus: formData.paymentStatus
       } as Inspection);
@@ -356,7 +356,7 @@ export const InspectionForm: React.FC<InspectionFormProps> = ({
                 onSave({
                     ...formData,
                     id: formData.id || Math.random().toString(36).substr(2, 9),
-                    totalValue: formData.chargedValue || calculateTotal(),
+                    totalValue: calculateTotal(),
                     status: 'Concluída',
                     paymentStatus: formData.paymentStatus
                 } as Inspection);
