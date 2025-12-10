@@ -19,8 +19,8 @@ export enum ServiceType {
   OUTROS = 'Outros'
 }
 
-// Ficha workflow status: Iniciada or No Caixa or Concluída
-export type InspectionStatus = 'Iniciada' | 'No Caixa' | 'Concluída';
+// Ficha workflow status: Iniciada or No Caixa or Concluída or Pagamento pendente
+export type InspectionStatus = 'Iniciada' | 'No Caixa' | 'Concluída' | 'Pagamento pendente';
 
 // Payment method: a pagar or paid methods
 export type PaymentMethod = 'A pagar' | 'Pix' | 'Crédito' | 'Débito' | 'Dinheiro';

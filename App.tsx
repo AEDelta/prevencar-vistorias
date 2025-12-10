@@ -303,8 +303,9 @@ const App: React.FC = () => {
       if (isPaid) {
         updated.status = 'Concluída';
         updated.data_pagamento = new Date().toISOString();
+      } else if (newPaymentStatus === 'A pagar') {
+        updated.status = 'Pagamento pendente';
       } else {
-        // If 'A pagar', set status to 'No Caixa'
         updated.status = 'No Caixa';
       }
       return updated;

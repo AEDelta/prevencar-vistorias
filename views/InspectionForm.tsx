@@ -89,7 +89,7 @@ export const InspectionForm: React.FC<InspectionFormProps> = ({
     const [serviceErrors, setServiceErrors] = useState<{ [serviceName: string]: string | null }>({});
     const [customServiceName, setCustomServiceName] = useState('');
     const [customServiceValue, setCustomServiceValue] = useState('');
-    const canEditStep1 = !readOnly && (!(inspectionToEdit?.status === 'Concluída') || currentUser?.role === 'admin');
+    const canEditStep1 = !readOnly && (!(inspectionToEdit?.status === 'Concluída' || inspectionToEdit?.status === 'Pagamento pendente') || currentUser?.role === 'admin');
     const canEditDate = currentUser?.role === 'admin' || currentUser?.role === 'financeiro';
     const [formData, setFormData] = useState<Partial<Inspection>>({
     date: new Date().toISOString().split('T')[0],
@@ -357,7 +357,7 @@ export const InspectionForm: React.FC<InspectionFormProps> = ({
                     ...formData,
                     id: formData.id || Math.random().toString(36).substr(2, 9),
                     totalValue: calculateTotal(),
-                    status: 'Concluída',
+                    status: formData.paymentStatus === 'A pagar' ? 'Pagamento pendente' : 'Concluída',
                     paymentStatus: formData.paymentStatus
                 } as Inspection);
         };
