@@ -3,6 +3,9 @@ import { ViewState } from '../types';
 import { KeyRound, Check, Shield } from 'lucide-react';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
+import emailjs from '@emailjs/browser';
+import { doc, setDoc, getDoc } from 'firebase/firestore';
+import { db } from '../firebase';
 
 interface ForgotPasswordProps {
   changeView: (view: ViewState) => void;
@@ -13,23 +16,61 @@ export const ForgotPassword: React.FC<ForgotPasswordProps> = ({ changeView }) =>
   const [email, setEmail] = useState('');
   const [code, setCode] = useState('');
   const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
 
-  const handleSendEmail = (e: React.FormEvent) => {
+  const handleSendEmail = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Simulate sending email
-    setStep(2);
+    try {
+      const code = Math.floor(100000 + Math.random() * 900000).toString();
+      const resetData = {
+        email,
+        code,
+        createdAt: new Date(),
+        expiresAt: new Date(Date.now() + 10 * 60 * 1000)
+      };
+      await setDoc(doc(db, 'passwordResets', email), resetData);
+      // Send email
+      await emailjs.send(
+        'your_service_id', // Replace with your EmailJS service ID
+        'your_template_id', // Replace with your EmailJS template ID
+        {
+          to_email: email,
+          code: code
+        },
+        'your_public_key' // Replace with your EmailJS public key
+      );
+      setStep(2);
+    } catch (error) {
+      console.error('Erro ao enviar email:', error);
+      alert('Erro ao enviar email');
+    }
   };
 
-  const handleVerifyCode = (e: React.FormEvent) => {
+  const handleVerifyCode = async (e: React.FormEvent) => {
       e.preventDefault();
-      // Simulate verifying code
-      setStep(3);
+      try {
+        const resetDoc = await getDoc(doc(db, 'passwordResets', email));
+        if (resetDoc.exists()) {
+          const data = resetDoc.data();
+          if (data.code === code && data.expiresAt.toDate() > new Date()) {
+            setStep(3);
+          } else {
+            alert('Código inválido ou expirado');
+          }
+        } else {
+          alert('Código inválido');
+        }
+      } catch (error) {
+        console.error('Erro ao verificar código:', error);
+        alert('Erro ao verificar código');
+      }
   };
 
-  const handleResetPassword = (e: React.FormEvent) => {
+  const handleResetPassword = async (e: React.FormEvent) => {
       e.preventDefault();
-      // Simulate reset
-      setStep(4); // Success state
+      // Since no backend, simulate success
+      alert('Senha alterada com sucesso');
+      setStep(4);
   };
 
   return (

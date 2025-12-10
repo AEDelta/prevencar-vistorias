@@ -450,6 +450,7 @@ const App: React.FC = () => {
                 users={users}
                 indications={indications}
                 services={services}
+                inspections={inspections}
                 // Pass Handlers
                 onSaveUser={handleSaveUser}
                 onDeleteUser={handleDeleteUser}
