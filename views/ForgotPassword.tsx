@@ -1,42 +1,27 @@
 import React, { useState } from 'react';
 import { ViewState } from '../types';
-import { KeyRound, Check, Shield } from 'lucide-react';
+import { KeyRound, Check, Shield, Mail, Phone } from 'lucide-react';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
-import { sendPasswordResetEmail } from 'firebase/auth';
-import { auth } from '../firebase';
 
 interface ForgotPasswordProps {
   changeView: (view: ViewState) => void;
 }
 
 export const ForgotPassword: React.FC<ForgotPasswordProps> = ({ changeView }) => {
-  const [step, setStep] = useState(1); // 1: Email, 2: Success, 3: Instructions
+  const [step, setStep] = useState(1); // 1: Email, 2: Contact Info, 3: Confirmation
   const [email, setEmail] = useState('');
 
   const handleSendEmail = async (e: React.FormEvent) => {
     e.preventDefault();
-    try {
-      await sendPasswordResetEmail(auth, email);
-      alert('Email de redefinição de senha enviado! Verifique sua caixa de entrada.');
-      setStep(2);
-    } catch (error: any) {
-      console.error('Erro ao enviar email:', error);
-      let message = 'Erro ao enviar email de redefinição de senha.';
-      if (error.code === 'auth/user-not-found') {
-        message = 'Email não encontrado. Verifique se o email está correto.';
-      } else if (error.code === 'auth/invalid-email') {
-        message = 'Email inválido.';
-      }
-      alert(message);
-    }
+    // Simulate processing
+    alert('Solicitação de redefinição de senha recebida! Entre em contato com o administrador para redefinir sua senha.');
+    setStep(2);
   };
 
   const handleVerifyCode = async (e: React.FormEvent) => {
       e.preventDefault();
-      // Since Firebase handles the reset through email links,
-      // we just show a success message
-      alert('Verifique seu email e clique no link para redefinir sua senha.');
+      // Show contact information
       setStep(3);
   };
 
@@ -83,12 +68,26 @@ export const ForgotPassword: React.FC<ForgotPasswordProps> = ({ changeView }) =>
 
         {step === 2 && (
             <div className="space-y-6 animate-fade-in text-center">
-                <div className="bg-green-50 border border-green-200 text-green-700 p-6 rounded-lg">
-                    <Check size={48} className="mx-auto mb-4 text-green-600"/>
-                    <p className="font-bold text-lg mb-2">Email Enviado!</p>
-                    <p className="text-sm">Enviamos um link de redefinição de senha para:</p>
-                    <p className="font-bold text-brand-blue mt-2">{email}</p>
-                    <p className="text-sm mt-4">Verifique sua caixa de entrada e clique no link para redefinir sua senha.</p>
+                <div className="bg-blue-50 border border-blue-200 text-blue-700 p-6 rounded-lg">
+                    <Mail size={48} className="mx-auto mb-4 text-blue-600"/>
+                    <p className="font-bold text-lg mb-2">Solicitação Recebida!</p>
+                    <p className="text-sm mb-4">Para redefinir sua senha, entre em contato com o administrador do sistema:</p>
+
+                    <div className="bg-white p-4 rounded-lg border border-blue-200 mb-4">
+                        <div className="flex items-center justify-center mb-2">
+                            <Mail size={20} className="mr-2 text-blue-600"/>
+                            <span className="font-semibold">Email:</span>
+                        </div>
+                        <p className="text-blue-800 font-bold">admin@prevencar.com.br</p>
+                    </div>
+
+                    <div className="bg-white p-4 rounded-lg border border-blue-200">
+                        <div className="flex items-center justify-center mb-2">
+                            <Phone size={20} className="mr-2 text-blue-600"/>
+                            <span className="font-semibold">Telefone:</span>
+                        </div>
+                        <p className="text-blue-800 font-bold">(11) 99999-9999</p>
+                    </div>
                 </div>
                 <div className="space-y-3">
                     <Button
@@ -97,7 +96,7 @@ export const ForgotPassword: React.FC<ForgotPasswordProps> = ({ changeView }) =>
                         className="w-full"
                         onClick={() => setStep(1)}
                     >
-                        Enviar Novamente
+                        Fazer Nova Solicitação
                     </Button>
                     <Button
                         type="button"
@@ -113,13 +112,11 @@ export const ForgotPassword: React.FC<ForgotPasswordProps> = ({ changeView }) =>
 
         {step === 3 && (
             <div className="space-y-6 animate-fade-in text-center">
-                <div className="bg-blue-50 border border-blue-200 text-blue-700 p-6 rounded-lg">
-                    <Shield size={48} className="mx-auto mb-4 text-blue-600"/>
-                    <p className="font-bold text-lg mb-2">Próximos Passos</p>
-                    <p className="text-sm">1. Verifique seu email e clique no link de redefinição</p>
-                    <p className="text-sm">2. Você será redirecionado para uma página segura</p>
-                    <p className="text-sm">3. Digite sua nova senha</p>
-                    <p className="text-sm mt-4">O link é válido por 1 hora.</p>
+                <div className="bg-green-50 border border-green-200 text-green-700 p-6 rounded-lg">
+                    <Check size={48} className="mx-auto mb-4 text-green-600"/>
+                    <p className="font-bold text-lg mb-2">Solicitação Processada!</p>
+                    <p className="text-sm">Sua solicitação de redefinição de senha foi registrada.</p>
+                    <p className="text-sm mt-2">O administrador entrará em contato em breve para ajudar com a redefinição.</p>
                 </div>
                 <Button
                     className="w-full"
@@ -128,22 +125,6 @@ export const ForgotPassword: React.FC<ForgotPasswordProps> = ({ changeView }) =>
                     Voltar ao Login
                 </Button>
             </div>
-        )}
-
-        {step === 4 && (
-          <div className="text-center space-y-6 animate-fade-in">
-            <div className="bg-green-100 text-green-700 p-6 rounded-lg flex flex-col items-center">
-                <Shield size={48} className="mb-2"/>
-              <p className="font-bold text-lg">Senha Alterada!</p>
-              <p className="text-sm">Você já pode acessar o sistema com sua nova senha.</p>
-            </div>
-            <Button 
-              className="w-full"
-              onClick={() => changeView(ViewState.LOGIN)}
-            >
-              Voltar ao Login
-            </Button>
-          </div>
         )}
       </div>
     </div>
