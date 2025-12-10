@@ -1,0 +1,955 @@
+import React, { useState, useEffect } from 'react';
+import { Button } from '../components/ui/Button';
+import { Input } from '../components/ui/Input';
+import { Users, Truck, Briefcase, Plus, ArrowLeft, Trash2, Edit2, User as UserIcon, Lock, Check, AlertTriangle, Download, FileText, BarChart3 } from 'lucide-react';
+import { User, Indication, ServiceItem, Role, VehicleCategory, Inspection } from '../types';
+import { exportToExcel, exportToPDF } from '../utils/exportUtils';
+import * as XLSX from 'xlsx';
+import jsPDF from 'jspdf';
+import 'jspdf-autotable';
+import { createUserWithEmailAndPassword } from 'firebase/auth';
+import { auth, db } from '../firebase';
+import { doc, setDoc } from 'firebase/firestore';
+
+// Export mock fallback data for InspectionForm dropdowns if needed
+export const MOCK_INDICATIONS_FALLBACK: Indication[] = [
+    {
+        id: '1',
+        name: 'Peças AutoSul',
+        document: '12.345.678/0001-90',
+        phone: '(11) 98888-7777',
+        email: 'contato@autosul.com',
+        cep: '01001-000',
+        address: 'Rua Principal',
+        number: '100',
+        servicePrices: { '1': 95.00, '2': 240.00, '3': 140.00 }
+    },
+    {
+        id: '2',
+        name: 'Mecânica Rápida',
+        document: '98.765.432/0001-10',
+        phone: '(11) 97777-6666',
+        email: 'contato@mecanica.com',
+        cep: '02002-000',
+        address: 'Av Secundaria',
+        number: '200',
+        servicePrices: { '2': 230.00, '4': 45.00, '5': 280.00 }
+    }
+];
+
+export const MOCK_SERVICES_FALLBACK: ServiceItem[] = [
+    { id: '1', name: 'Laudo de Transferência', prices: { Motocicletas: 80, Automóveis: 100, Utilitários: 120, Caminhões: 200, Carretas: 250, Outros: 100 }, description: 'Laudo obrigatório para transferência.' },
+    { id: '2', name: 'Laudo Cautelar', prices: { Motocicletas: 200, Automóveis: 250, Utilitários: 300, Caminhões: 500, Carretas: 600, Outros: 250 }, description: 'Análise completa da estrutura.' },
+    { id: '3', name: 'Vistoria Prévia', prices: { Motocicletas: 120, Automóveis: 150, Utilitários: 180, Caminhões: 300, Carretas: 350, Outros: 150 }, description: 'Para seguradoras.' },
+    { id: '4', name: 'Pesquisa', prices: { Motocicletas: 40, Automóveis: 50, Utilitários: 60, Caminhões: 100, Carretas: 120, Outros: 50 }, description: 'Pesquisa de débitos e restrições.' },
+    { id: '5', name: 'Prevenscan', prices: { Motocicletas: 240, Automóveis: 300, Utilitários: 360, Caminhões: 600, Carretas: 700, Outros: 300 }, description: 'Scanner completo.' }
+];
+
+export { MOCK_INDICATIONS_FALLBACK as MOCK_INDICATIONS, MOCK_SERVICES_FALLBACK as MOCK_SERVICES };
+
+interface ManagementProps {
+    currentUser?: User;
+    // Data Props
+    users: User[];
+    indications: Indication[];
+    services: ServiceItem[];
+    inspections: Inspection[];
+    // Handlers
+    onSaveUser: (user: User) => void;
+    onDeleteUser: (id: string) => void;
+    onSaveIndication: (indication: Indication) => void;
+    onDeleteIndication: (id: string) => void;
+    onSaveService: (service: ServiceItem) => void;
+    onDeleteService: (id: string) => void;
+}
+
+// Helper for masks
+const maskDocument = (value: string) => {
+  const cleaned = value.replace(/\D/g, '');
+  const length = cleaned.length;
+
+  if (length <= 11) {
+    // CPF mask: 000.000.000-00
+    return cleaned
+      .replace(/^(\d{3})(\d)/, '$1.$2')
+      .replace(/^(\d{3})\.(\d{3})(\d)/, '$1.$2.$3')
+      .replace(/\.(\d{3})(\d)/, '.$1-$2')
+      .slice(0, 14); // 11 digits + dots and dash
+  } else {
+    // CNPJ mask: 00.000.000/0000-00
+    return cleaned
+      .replace(/^(\d{2})(\d)/, '$1.$2')
+      .replace(/^(\d{2})\.(\d{3})(\d)/, '$1.$2.$3')
+      .replace(/\.(\d{3})(\d)/, '.$1/$2')
+      .replace(/(\d{4})(\d)/, '$1-$2')
+      .slice(0, 18);
+  }
+};
+
+const maskPhone = (value: string) => {
+    return value
+        .replace(/\D/g, '')
+        .replace(/^(\d{2})(\d)/g, '($1) $2')
+        .replace(/(\d)(\d{4})$/, '$1-$2')
+        .slice(0, 15);
+};
+
+export const Management: React.FC<ManagementProps> = ({
+    currentUser,
+    users, indications, services, inspections,
+    onSaveUser, onDeleteUser,
+    onSaveIndication, onDeleteIndication,
+    onSaveService, onDeleteService
+}) => {
+  const [activeTab, setActiveTab] = useState<'users' | 'indications' | 'services' | 'summary'>('users');
+  const [viewMode, setViewMode] = useState<'list' | 'form'>('list');
+
+  // Form States
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [userForm, setUserForm] = useState<Partial<User>>({});
+  const [indicationForm, setIndicationForm] = useState<Partial<Indication>>({});
+  const [serviceForm, setServiceForm] = useState<Partial<ServiceItem>>({});
+
+  // Profile Form
+  const [profileForm, setProfileForm] = useState<Partial<User>>({});
+
+
+
+  useEffect(() => {
+      if(currentUser) {
+          setProfileForm({ ...currentUser, password: '' });
+      }
+  }, [currentUser]);
+
+  const handleTabChange = (tab: any) => {
+      setActiveTab(tab);
+      setViewMode('list');
+      setEditingId(null);
+  };
+
+  // --- CRUD Handlers ---
+
+  const prepareCreate = (type: 'user' | 'indication' | 'service') => {
+      setEditingId(null);
+      if(type === 'user') setUserForm({});
+      if(type === 'indication') setIndicationForm({ servicePrices: {} });
+      if(type === 'service') setServiceForm({ prices: {} });
+      setViewMode('form');
+  };
+
+  const prepareEdit = (id: string, type: 'user' | 'indication' | 'service') => {
+      setEditingId(id);
+      if(type === 'user') {
+          const item = users.find(u => u.id === id);
+          if(item) setUserForm(item);
+      }
+      if(type === 'indication') {
+          const item = indications.find(i => i.id === id);
+          if(item) setIndicationForm(item);
+      }
+      if(type === 'service') {
+          const item = services.find(s => s.id === id);
+          if(item) setServiceForm(item);
+      }
+      setViewMode('form');
+  };
+
+  // Update per-service override price for the currently edited indication
+  const handleIndicationServicePriceChange = (serviceId: string, value: string) => {
+      const numeric = value === '' ? undefined : parseFloat(value);
+      setIndicationForm(prev => {
+          const sp = { ...(prev.servicePrices || {}) } as { [key: string]: number };
+          if (numeric === undefined || Number.isNaN(numeric)) {
+              // remove override if empty or invalid
+              delete sp[serviceId];
+          } else {
+              sp[serviceId] = numeric;
+          }
+          return { ...prev, servicePrices: sp };
+      });
+  };
+
+  const submitUser = async (e: React.FormEvent) => {
+      e.preventDefault();
+      try {
+          const userData = { name: userForm.name, email: userForm.email, role: userForm.role || 'vistoriador' } as User;
+          if (editingId) {
+              // Update existing user profile in Firestore
+              await setDoc(doc(db, 'users', editingId), userData);
+              onSaveUser({ ...userData, id: editingId });
+          } else {
+              // Create new user with Firebase Auth
+              const userCredential = await createUserWithEmailAndPassword(auth, userForm.email!, userForm.password!);
+              const uid = userCredential.user.uid;
+              // Save profile to Firestore
+              await setDoc(doc(db, 'users', uid), userData);
+              onSaveUser({ ...userData, id: uid });
+          }
+          setViewMode('list');
+      } catch (error: any) {
+          console.error('Erro ao salvar usuário:', error);
+          alert(`Erro ao salvar usuário: ${error.message}`);
+      }
+  };
+
+  const submitIndication = (e: React.FormEvent) => {
+      e.preventDefault();
+      onSaveIndication(indicationForm as Indication);
+      setViewMode('list');
+  };
+
+  const submitService = (e: React.FormEvent) => {
+      e.preventDefault();
+      onSaveService(serviceForm as ServiceItem);
+      setViewMode('list');
+  };
+
+  // Profile Update (Mock)
+      e.preventDefault();
+      alert("Dados atualizados com sucesso!");
+  };
+
+  const isAdmin = currentUser?.role === 'admin';
+  const isFinance = currentUser?.role === 'financeiro';
+
+  const isProfileReadOnly = currentUser?.role !== 'admin';
+
+  const handleExportUsers = (type: 'pdf' | 'excel') => {
+    try {
+      if (users.length === 0) {
+        alert('Nenhum usuário para exportar');
+        return;
+      }
+
+      const timestamp = new Date().toISOString().split('T')[0];
+
+      if (type === 'excel') {
+        // Simple Excel export for users
+        const data = users.map(user => ({
+          'Nome': user.name,
+          'Email': user.email,
+          'Função': user.role
+        }));
+
+        const worksheet = XLSX.utils.json_to_sheet(data);
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, 'Usuarios');
+        XLSX.writeFile(workbook, `usuarios_${timestamp}.xlsx`);
+      } else {
+        // Simple PDF for users
+        const pdf = new jsPDF();
+        const pageWidth = pdf.internal.pageSize.getWidth();
+        const margin = 15;
+        let yPosition = margin;
+
+        pdf.setFontSize(16);
+        pdf.text('Lista de Usuários', margin, yPosition);
+        yPosition += 15;
+
+        pdf.setFontSize(10);
+        pdf.text(`Gerado em: ${new Date().toLocaleDateString('pt-BR')}`, margin, yPosition);
+        yPosition += 10;
+
+        const tableData = users.map(user => [user.name, user.email, user.role]);
+
+        (pdf as any).autoTable({
+          head: [['Nome', 'Email', 'Função']],
+          body: tableData,
+          startY: yPosition,
+          margin: margin,
+          theme: 'grid',
+          styles: { font: 'helvetica', fontSize: 9 },
+          headStyles: { fillColor: [41, 128, 185], textColor: 255, fontStyle: 'bold' }
+        });
+
+        pdf.save(`usuarios_${timestamp}.pdf`);
+      }
+    } catch (error) {
+      console.error('Erro ao exportar usuários:', error);
+      alert('Erro ao exportar usuários');
+    }
+  };
+
+  const handleExportIndications = (type: 'pdf' | 'excel') => {
+    try {
+      if (indications.length === 0) {
+        alert('Nenhuma indicação para exportar');
+        return;
+      }
+
+      const timestamp = new Date().toISOString().split('T')[0];
+
+      if (type === 'excel') {
+        const data = indications.map(indication => ({
+          'Nome': indication.name,
+          'Documento': maskDocument(indication.document || ''),
+          'Telefone': indication.phone,
+          'Email': indication.email,
+          'CEP': indication.cep,
+          'Endereço': indication.address,
+          'Número': indication.number,
+        }));
+
+        const worksheet = XLSX.utils.json_to_sheet(data);
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, 'Indicacoes');
+        XLSX.writeFile(workbook, `indicacoes_${timestamp}.xlsx`);
+      } else {
+        const pdf = new jsPDF();
+        const pageWidth = pdf.internal.pageSize.getWidth();
+        const margin = 15;
+        let yPosition = margin;
+
+        pdf.setFontSize(16);
+        pdf.text('Lista de Indicações', margin, yPosition);
+        yPosition += 15;
+
+        pdf.setFontSize(10);
+        pdf.text(`Gerado em: ${new Date().toLocaleDateString('pt-BR')}`, margin, yPosition);
+        yPosition += 10;
+
+        const tableData = indications.map(indication => [
+          indication.name,
+          maskDocument(indication.document || ''),
+          indication.phone || '',
+          indication.email || '',
+          indication.cep || '',
+          indication.address || '',
+          indication.number || ''
+        ]);
+
+        (pdf as any).autoTable({
+          head: [['Nome', 'Documento', 'Telefone', 'Email', 'CEP', 'Endereço', 'Número']],
+          body: tableData,
+          startY: yPosition,
+          margin: margin,
+          theme: 'grid',
+          styles: { font: 'helvetica', fontSize: 9 },
+          headStyles: { fillColor: [41, 128, 185], textColor: 255, fontStyle: 'bold' }
+        });
+
+        pdf.save(`indicacoes_${timestamp}.pdf`);
+      }
+    } catch (error) {
+      console.error('Erro ao exportar indicações:', error);
+      alert('Erro ao exportar indicações');
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Tabs */}
+      <div className="bg-white p-2 rounded-xl shadow-sm inline-flex flex-wrap gap-2 border border-gray-100">
+        {(isAdmin || isFinance) && (
+            <>
+                <button
+                    onClick={() => handleTabChange('users')}
+                    className={`py-2 px-6 rounded-lg font-medium flex items-center gap-2 transition-all duration-200
+                    ${activeTab === 'users' 
+                        ? 'bg-brand-blue text-white shadow-md' 
+                        : 'text-gray-500 hover:bg-gray-100 hover:text-brand-blue'}`}
+                >
+                    <Users size={18} /> Equipe
+                </button>
+                <button
+                    onClick={() => handleTabChange('indications')}
+                    className={`py-2 px-6 rounded-lg font-medium flex items-center gap-2 transition-all duration-200
+                    ${activeTab === 'indications' 
+                        ? 'bg-brand-blue text-white shadow-md' 
+                        : 'text-gray-500 hover:bg-gray-100 hover:text-brand-blue'}`}
+                >
+                    <Truck size={18} /> Indicações
+                </button>
+                <button
+                    onClick={() => handleTabChange('services')}
+                    className={`py-2 px-6 rounded-lg font-medium flex items-center gap-2 transition-all duration-200
+                    ${activeTab === 'services'
+                        ? 'bg-brand-blue text-white shadow-md'
+                        : 'text-gray-500 hover:bg-gray-100 hover:text-brand-blue'}`}
+                >
+                    <Briefcase size={18} /> Serviços
+                </button>
+                <button
+                    onClick={() => handleTabChange('summary')}
+                    className={`py-2 px-6 rounded-lg font-medium flex items-center gap-2 transition-all duration-200
+                    ${activeTab === 'summary'
+                        ? 'bg-brand-blue text-white shadow-md'
+                        : 'text-gray-500 hover:bg-gray-100 hover:text-brand-blue'}`}
+                >
+                    <BarChart3 size={18} /> Resumo Operacional
+                </button>
+            </>
+        )}
+      </div>
+
+
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 md:p-8 min-h-[500px]">
+        
+
+
+                 <div className="mb-6 border-b pb-4 flex justify-between items-start">
+                     <div>
+                        <p className="text-gray-500 text-sm">Informações de cadastro</p>
+                     </div>
+                     {isProfileReadOnly && (
+                         <div className="bg-blue-50 text-blue-700 text-xs px-3 py-2 rounded-lg flex items-center gap-2 border border-blue-100">
+                             <Lock size={14} /> <span>Modo Leitura</span>
+                         </div>
+                     )}
+                 </div>
+                 
+                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                         <Input 
+                            label="Nome" 
+                            value={profileForm.name || ''} 
+                            onChange={e => setProfileForm({...profileForm, name: e.target.value})} 
+                            className="bg-gray-50" 
+                            disabled={isProfileReadOnly}
+                        />
+                         <Input 
+                            label="Email" 
+                            value={profileForm.email || ''} 
+                            readOnly 
+                            className="bg-gray-100 text-gray-500 cursor-not-allowed" 
+                            disabled
+                        />
+                         <div className="md:col-span-2">
+                             <Input 
+                                label="Nova Senha (Opcional)" 
+                                type="password" 
+                                placeholder={isProfileReadOnly ? "Alteração restrita ao administrador" : "Deixe em branco para manter a atual"} 
+                                value={profileForm.password || ''} 
+                                onChange={e => setProfileForm({...profileForm, password: e.target.value})} 
+                                className="bg-gray-50"
+                                disabled={isProfileReadOnly}
+                            />
+                         </div>
+                     </div>
+                     
+                     {!isProfileReadOnly ? (
+                        <div className="flex justify-end pt-4">
+                            <Button type="submit" className="bg-green-600 hover:bg-green-700">
+                                <Check size={18} className="mr-2" /> Salvar Alterações
+                            </Button>
+                        </div>
+                     ) : (
+                         <div className="bg-yellow-50 p-4 rounded-lg flex items-start gap-3 text-yellow-700 text-sm border border-yellow-100">
+                             <AlertTriangle size={18} className="mt-0.5 shrink-0" />
+                         </div>
+                     )}
+                 </form>
+             </div>
+        )}
+
+        {/* ================= USERS TAB ================= */}
+        {activeTab === 'users' && (isAdmin || isFinance) && (
+          <div className="animate-fade-in">
+            {viewMode === 'list' ? (
+                <>
+                    <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
+                        <div>
+                            <h2 className="text-xl font-bold text-gray-800">Equipe</h2>
+                            <p className="text-gray-500 text-sm">Gerencie o acesso ao sistema</p>
+                        </div>
+                        <div className="flex gap-2 w-full md:w-auto">
+                            <Button onClick={() => handleExportUsers('excel')} variant="outline" className="flex-1 md:flex-none">
+                                <Download size={18} className="mr-2" /> Excel
+                            </Button>
+                            <Button onClick={() => handleExportUsers('pdf')} variant="outline" className="flex-1 md:flex-none">
+                                <FileText size={18} className="mr-2" /> PDF
+                            </Button>
+                            <Button onClick={() => prepareCreate('user')} className="flex-1 md:flex-none bg-brand-mauve hover:bg-pink-900 shadow-md shadow-pink-100">
+                                <Plus size={18} className="mr-2"/> Novo Usuário
+                            </Button>
+                        </div>
+                    </div>
+                    
+                    <div className="overflow-hidden rounded-xl border border-gray-100">
+                        <table className="w-full text-left border-collapse">
+                            <thead>
+                                <tr className="bg-gray-50 border-b border-gray-100">
+                                    <th className="p-4 font-semibold text-gray-600 text-sm uppercase tracking-wider">Nome</th>
+                                    <th className="p-4 font-semibold text-gray-600 text-sm uppercase tracking-wider">Email</th>
+                                    <th className="p-4 font-semibold text-gray-600 text-sm uppercase tracking-wider">Função</th>
+                                    <th className="p-4 text-right font-semibold text-gray-600 text-sm uppercase tracking-wider">Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-100">
+                                {users.map(user => (
+                                    <tr key={user.id} className="hover:bg-gray-50 transition-colors">
+                                        <td className="p-4 font-medium text-gray-800">{user.name}</td>
+                                        <td className="p-4 text-gray-600">{user.email}</td>
+                                        <td className="p-4">
+                                            <span className={`text-xs px-3 py-1 rounded-full font-bold uppercase tracking-wider 
+                                                ${user.role === 'admin' ? 'bg-blue-100 text-blue-700' : 
+                                                  user.role === 'financeiro' ? 'bg-green-100 text-green-700' : 
+                                                  'bg-gray-100 text-gray-600'}`}>
+                                                {user.role}
+                                            </span>
+                                        </td>
+                                        <td className="p-4 text-right flex justify-end items-center gap-2">
+                                            <button 
+                                                type="button" 
+                                                onClick={() => prepareEdit(user.id, 'user')} 
+                                                className="text-gray-400 hover:text-brand-blue p-2 rounded-lg hover:bg-blue-50 transition-colors" 
+                                                title="Editar"
+                                            >
+                                                <Edit2 size={18} />
+                                            </button>
+                                            <button 
+                                                type="button"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    if(window.confirm("Confirmar exclusão deste usuário?")) {
+                                                        onDeleteUser(user.id);
+                                                    }
+                                                }} 
+                                                className="text-gray-400 hover:text-brand-red p-2 rounded-lg hover:bg-red-50 transition-colors"
+                                                title="Excluir Usuário"
+                                            >
+                                                <Trash2 size={18} />
+                                            </button>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                </>
+            ) : (
+                <div className="max-w-2xl mx-auto animate-fade-in">
+                    <div className="flex items-center mb-8 pb-4 border-b">
+                        <button onClick={() => setViewMode('list')} className="mr-4 text-gray-400 hover:text-brand-blue transition-colors">
+                            <ArrowLeft size={24} />
+                        </button>
+                        <div>
+                            <h2 className="text-2xl font-bold text-gray-800">{editingId ? 'Editar Usuário' : 'Novo Usuário'}</h2>
+                            <p className="text-gray-500">Dados de acesso</p>
+                        </div>
+                    </div>
+                    <form onSubmit={submitUser} className="space-y-6">
+                        <div className="grid grid-cols-1 gap-6">
+                            <Input 
+                                label="Nome Completo" 
+                                value={userForm.name || ''}
+                                onChange={e => setUserForm({...userForm, name: e.target.value})}
+                                required
+                                className="bg-gray-50"
+                            />
+                            <Input 
+                                label="Email Corporativo" 
+                                type="email" 
+                                value={userForm.email || ''}
+                                onChange={e => setUserForm({...userForm, email: e.target.value})}
+                                required 
+                                className="bg-gray-50"
+                            />
+                             <div className="flex flex-col">
+                                <label className="text-sm font-semibold text-brand-blue mb-2">Nível de Acesso</label>
+                                <select
+                                    className="border-2 border-gray-200 rounded-lg px-4 py-3 bg-gray-50 focus:outline-none focus:ring-2 focus:ring-brand-blue focus:bg-white transition-all"
+                                    value={userForm.role || 'vistoriador'}
+                                    onChange={e => setUserForm({...userForm, role: e.target.value as Role})}
+                                >
+                                    <option value="vistoriador">Vistoriador</option>
+                                    <option value="financeiro">Financeiro</option>
+                                    <option value="admin">Administrador</option>
+                                </select>
+                            </div>
+                            <Input
+                                label="Senha"
+                                type="password"
+                                value={userForm.password || ''}
+                                onChange={e => setUserForm({...userForm, password: e.target.value})}
+                                required={!editingId}
+                                className="bg-gray-50"
+                                placeholder={editingId ? "Deixe em branco para manter a atual" : ""}
+                            />
+                        </div>
+                        
+                        <div className="flex justify-between items-center pt-6">
+                            {editingId ? (
+                                <Button 
+                                    type="button" 
+                                    variant="danger" 
+                                    onClick={() => {
+                                        if (window.confirm("Deseja realmente excluir este usuário?")) {
+                                            onDeleteUser(editingId);
+                                            setViewMode('list');
+                                        }
+                                    }} 
+                                    className="h-12 px-6"
+                                >
+                                    <Trash2 size={18} className="mr-2"/> Excluir
+                                </Button>
+                            ) : <div></div>}
+                            <div className="flex gap-3">
+                                <Button type="button" variant="outline" onClick={() => setViewMode('list')} className="h-12 px-6">Cancelar</Button>
+                                <Button type="submit" className="bg-brand-mauve hover:bg-pink-900 h-12 px-8 text-lg shadow-lg shadow-pink-100">Salvar</Button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            )}
+          </div>
+        )}
+
+        {/* ================= INDICATIONS TAB ================= */}
+        {activeTab === 'indications' && (isAdmin || isFinance) && (
+          <div className="animate-fade-in">
+             {viewMode === 'list' ? (
+                <>
+                    <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
+                        <div>
+                            <h2 className="text-xl font-bold text-gray-800">Indicações</h2>
+                            <p className="text-gray-500 text-sm">Parceiros e Lojistas</p>
+                        </div>
+                        <div className="flex gap-2 w-full md:w-auto">
+                            <Button onClick={() => handleExportIndications('excel')} variant="outline" className="flex-1 md:flex-none">
+                                <Download size={18} className="mr-2" /> Exportar para Excel
+                            </Button>
+                            <Button onClick={() => handleExportIndications('pdf')} variant="outline" className="flex-1 md:flex-none">
+                                <FileText size={18} className="mr-2" /> Exportar para PDF
+                            </Button>
+                            <Button onClick={() => prepareCreate('indication')} className="flex-1 md:flex-none bg-brand-blue shadow-md shadow-blue-100">
+                                <Truck size={18} className="mr-2"/> Nova Indicação
+                            </Button>
+                        </div>
+                    </div>
+                     <div className="overflow-hidden rounded-xl border border-gray-100">
+                        <table className="w-full text-left border-collapse">
+                            <thead>
+                                <tr className="bg-gray-50 border-b border-gray-100">
+                                    <th className="p-4 font-semibold text-gray-600 text-sm uppercase tracking-wider">Nome</th>
+                                    <th className="p-4 font-semibold text-gray-600 text-sm uppercase tracking-wider">Documento</th>
+                                    <th className="p-4 font-semibold text-gray-600 text-sm uppercase tracking-wider">Contato</th>
+                                    <th className="p-4 text-right font-semibold text-gray-600 text-sm uppercase tracking-wider">Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-100">
+                                {indications.map(p => (
+                                    <tr key={p.id} className="hover:bg-gray-50 transition-colors">
+                                        <td className="p-4 font-medium text-gray-800">{p.name}</td>
+                                        <td className="p-4 text-gray-600 font-mono text-sm">{maskDocument(p.document || '')}</td>
+                                        <td className="p-4 text-gray-600 text-sm">{p.phone}</td>
+                                        <td className="p-4 text-right flex justify-end items-center gap-2">
+                                            <button type="button" onClick={() => prepareEdit(p.id, 'indication')} className="text-gray-400 hover:text-brand-blue p-2 rounded-lg hover:bg-blue-50 transition-colors" title="Editar">
+                                                <Edit2 size={18} />
+                                            </button>
+                                            <button 
+                                                type="button"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    if(window.confirm("Confirmar exclusão desta indicação?")) {
+                                                        onDeleteIndication(p.id);
+                                                    }
+                                                }}
+                                                className="text-gray-400 hover:text-brand-red p-2 rounded-lg hover:bg-red-50 transition-colors"
+                                                title="Excluir Indicação"
+                                            >
+                                                <Trash2 size={18} />
+                                            </button>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                </>
+             ) : (
+                <div className="max-w-2xl mx-auto animate-fade-in">
+                    <div className="flex items-center mb-8 pb-4 border-b">
+                         <button onClick={() => setViewMode('list')} className="mr-4 text-gray-400 hover:text-brand-blue transition-colors">
+                            <ArrowLeft size={24} />
+                        </button>
+                        <div>
+                            <h2 className="text-2xl font-bold text-gray-800">{editingId ? 'Editar Indicação' : 'Nova Indicação'}</h2>
+                        </div>
+                    </div>
+                    <form onSubmit={submitIndication} className="space-y-6">
+                        <Input 
+                            label="Razão Social / Nome" 
+                            value={indicationForm.name || ''} 
+                            onChange={e => setIndicationForm({...indicationForm, name: e.target.value})} 
+                            required 
+                            className="bg-gray-50" 
+                        />
+                        <Input
+                            label="CPF / CNPJ"
+                            value={maskDocument(indicationForm.document || '')}
+                            onChange={e => setIndicationForm({...indicationForm, document: e.target.value.replace(/\D/g, '')})}
+                            required
+                            className="bg-gray-50"
+                            maxLength={18}
+                            placeholder="CPF: 000.000.000-00 ou CNPJ: 00.000.000/0000-00"
+                        />
+                        <Input 
+                            label="Telefone" 
+                            value={indicationForm.phone || ''} 
+                            onChange={e => setIndicationForm({...indicationForm, phone: maskPhone(e.target.value)})} 
+                            className="bg-gray-50" 
+                            maxLength={15}
+                            placeholder="(00) 00000-0000"
+                        />
+                        <Input label="Email" value={indicationForm.email || ''} onChange={e => setIndicationForm({...indicationForm, email: e.target.value})} className="bg-gray-50" />
+                        {/* Per-service price overrides */}
+                        <div className="mt-4 border-t pt-4">
+                            <h4 className="text-sm font-semibold text-gray-700 mb-2">Preços por Serviço (opcional)</h4>
+                            <p className="text-xs text-gray-500 mb-3">Defina preços específicos para esta indicação. Deixe em branco para usar o preço base do serviço.</p>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                {services.map(s => {
+                                    const val = indicationForm.servicePrices ? indicationForm.servicePrices[s.id] : undefined;
+                                    return (
+                                        <div key={s.id} className="flex items-center gap-3">
+                                            <div className="flex-1 text-sm font-medium">{s.name}</div>
+                                            <div className="w-40">
+                                                <input
+                                                    type="number"
+                                                    step="0.01"
+                                                    min="0"
+                                                    className="w-full border-2 border-gray-200 rounded-lg px-3 py-2 bg-gray-50 focus:outline-none focus:ring-2 focus:ring-brand-blue"
+                                                    value={val !== undefined ? String(val) : ''}
+                                                    onChange={e => handleIndicationServicePriceChange(s.id, e.target.value)}
+                                                    placeholder="R$ 0,00"
+                                                />
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                        
+                        <div className="flex justify-between items-center pt-6">
+                            {editingId ? (
+                                <Button 
+                                    type="button" 
+                                    variant="danger" 
+                                    onClick={() => {
+                                        if (window.confirm("Deseja realmente excluir esta indicação?")) {
+                                            onDeleteIndication(editingId);
+                                            setViewMode('list');
+                                        }
+                                    }} 
+                                    className="h-12 px-6"
+                                >
+                                    <Trash2 size={18} className="mr-2"/> Excluir
+                                </Button>
+                            ) : <div></div>}
+                            <div className="flex gap-3">
+                                <Button type="button" variant="outline" onClick={() => setViewMode('list')} className="h-12 px-6">Cancelar</Button>
+                                <Button type="submit" className="bg-brand-blue h-12 px-8 text-lg shadow-lg shadow-blue-100">Salvar</Button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+             )}
+          </div>
+        )}
+
+        {/* ================= SERVICES TAB ================= */}
+        {activeTab === 'services' && (isAdmin || isFinance) && (
+          <div className="animate-fade-in">
+            {viewMode === 'list' ? (
+                <>
+                    <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
+                        <div>
+                            <h2 className="text-xl font-bold text-gray-800">Serviços</h2>
+                            <p className="text-gray-500 text-sm">Catálogo de preços</p>
+                        </div>
+                        <Button onClick={() => prepareCreate('service')} className="w-full md:w-auto bg-brand-yellow text-gray-900 hover:bg-yellow-500 hover:text-white shadow-md shadow-yellow-100">
+                            <Briefcase size={18} className="mr-2"/> Novo Serviço
+                        </Button>
+                    </div>
+                    <div className="overflow-hidden rounded-xl border border-gray-100">
+                        <table className="w-full text-left border-collapse">
+                            <thead>
+                                <tr className="bg-gray-50 border-b border-gray-100">
+                                    <th className="p-4 font-semibold text-gray-600 text-sm uppercase tracking-wider">Serviço</th>
+                                    <th className="p-4 text-right font-semibold text-gray-600 text-sm uppercase tracking-wider">Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-100">
+                                {services.map(s => (
+                                    <tr key={s.id} className="hover:bg-gray-50 transition-colors">
+                                        <td className="p-4 font-bold text-gray-800">{s.name}</td>
+                                        <td className="p-4 text-right flex justify-end items-center gap-2">
+                                             <button type="button" onClick={() => prepareEdit(s.id, 'service')} className="text-gray-400 hover:text-brand-blue p-2 rounded-lg hover:bg-blue-50 transition-colors" title="Editar">
+                                                <Edit2 size={18} />
+                                            </button>
+                                            <button 
+                                                type="button"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    if(window.confirm("Confirmar exclusão deste serviço?")) {
+                                                        onDeleteService(s.id);
+                                                    }
+                                                }} 
+                                                className="text-gray-400 hover:text-brand-red p-2 rounded-lg hover:bg-red-50 transition-colors"
+                                                title="Excluir Serviço"
+                                            >
+                                                <Trash2 size={18} />
+                                            </button>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                </>
+            ) : (
+                 <div className="max-w-2xl mx-auto animate-fade-in">
+                    <div className="flex items-center mb-8 pb-4 border-b">
+                         <button onClick={() => setViewMode('list')} className="mr-4 text-gray-400 hover:text-brand-blue transition-colors">
+                            <ArrowLeft size={24} />
+                        </button>
+                        <div>
+                            <h2 className="text-2xl font-bold text-gray-800">{editingId ? 'Editar Serviço' : 'Novo Serviço'}</h2>
+                        </div>
+                    </div>
+                    <form onSubmit={submitService} className="space-y-6">
+                        <Input label="Nome do Serviço" value={serviceForm.name || ''} onChange={e => setServiceForm({...serviceForm, name: e.target.value})} required className="bg-gray-50" />
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {Object.values(VehicleCategory).map(cat => (
+                                <Input
+                                    key={cat}
+                                    label={`Preço ${cat} (R$)`}
+                                    type="number"
+                                    step="0.01"
+                                    value={serviceForm.prices?.[cat] || ''}
+                                    onChange={e => setServiceForm(prev => ({
+                                        ...prev,
+                                        prices: { ...prev.prices, [cat]: parseFloat(e.target.value) || 0 }
+                                    }))}
+                                    required
+                                    className="bg-gray-50"
+                                />
+                            ))}
+                        </div>
+                        <div className="flex flex-col">
+                            <label className="text-sm font-semibold text-brand-blue mb-2">Descrição</label>
+                            <textarea
+                                className="border-2 border-gray-200 rounded-lg px-4 py-3 h-32 bg-gray-50 focus:outline-none focus:ring-2 focus:ring-brand-blue focus:bg-white transition-all resize-none"
+                                value={serviceForm.description || ''}
+                                onChange={e => setServiceForm({...serviceForm, description: e.target.value})}
+                            />
+                        </div>
+                        <div className="flex justify-between items-center pt-6">
+                             {editingId ? (
+                                <Button 
+                                    type="button" 
+                                    variant="danger" 
+                                    onClick={() => {
+                                        if (window.confirm("Deseja realmente excluir este serviço?")) {
+                                            onDeleteService(editingId);
+                                            setViewMode('list');
+                                        }
+                                    }} 
+                                    className="h-12 px-6"
+                                >
+                                    <Trash2 size={18} className="mr-2"/> Excluir
+                                </Button>
+                            ) : <div></div>}
+                            <div className="flex gap-3">
+                                <Button type="button" variant="outline" onClick={() => setViewMode('list')} className="h-12 px-6">Cancelar</Button>
+                                <Button type="submit" className="bg-brand-yellow text-gray-900 hover:bg-yellow-500 hover:text-white h-12 px-8 text-lg shadow-lg shadow-yellow-100">Salvar</Button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            )}
+          </div>
+        )}
+
+        {/* ================= SUMMARY TAB ================= */}
+        {activeTab === 'summary' && (isAdmin || isFinance) && (
+          <div className="animate-fade-in">
+            <div className="mb-6 border-b pb-4">
+              <h2 className="text-xl font-bold text-gray-800">Resumo Operacional</h2>
+              <p className="text-gray-500 text-sm">Dados resumidos sobre serviços realizados</p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {/* Total Inspections */}
+              <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-gray-600">Total de Vistorias</p>
+                    <p className="text-2xl font-bold text-gray-900">{inspections.length}</p>
+                  </div>
+                  <div className="p-3 bg-blue-50 rounded-lg">
+                    <FileText className="h-6 w-6 text-blue-600" />
+                  </div>
+                </div>
+              </div>
+
+              {/* Completed Inspections */}
+              <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-gray-600">Vistorias Concluídas</p>
+                    <p className="text-2xl font-bold text-green-600">{inspections.filter(i => i.status === 'Concluída').length}</p>
+                  </div>
+                  <div className="p-3 bg-green-50 rounded-lg">
+                    <Check className="h-6 w-6 text-green-600" />
+                  </div>
+                </div>
+              </div>
+
+              {/* Total Revenue */}
+              <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-gray-600">Receita Total</p>
+                    <p className="text-2xl font-bold text-gray-900">
+                      R$ {inspections.reduce((sum, i) => sum + (i.totalValue || 0), 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    </p>
+                  </div>
+                  <div className="p-3 bg-yellow-50 rounded-lg">
+                    <BarChart3 className="h-6 w-6 text-yellow-600" />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Services Summary */}
+            <div className="mt-8">
+              <h3 className="text-lg font-semibold text-gray-800 mb-4">Resumo por Serviço</h3>
+              <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="bg-gray-50 border-b border-gray-100">
+                      <th className="p-4 font-semibold text-gray-600 text-sm uppercase tracking-wider">Serviço</th>
+                      <th className="p-4 font-semibold text-gray-600 text-sm uppercase tracking-wider">Quantidade</th>
+                      <th className="p-4 font-semibold text-gray-600 text-sm uppercase tracking-wider">Receita</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {services.map(service => {
+                      const serviceInspections = inspections.filter(i =>
+                        i.selectedServices.some(s => s.name === service.name)
+                      );
+                      const serviceRevenue = serviceInspections.reduce((sum, i) => {
+                        const serviceInInspection = i.selectedServices.find(s => s.name === service.name);
+                        return sum + (serviceInInspection?.chargedValue || 0);
+                      }, 0);
+
+                      return (
+                        <tr key={service.id} className="hover:bg-gray-50 transition-colors">
+                          <td className="p-4 font-medium text-gray-800">{service.name}</td>
+                          <td className="p-4 text-gray-600">{serviceInspections.length}</td>
+                          <td className="p-4 text-gray-600">
+                            R$ {serviceRevenue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};

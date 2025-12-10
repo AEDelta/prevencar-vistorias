@@ -124,6 +124,8 @@ export const InspectionList: React.FC<InspectionListProps> = ({ inspections, onE
       return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
   }
 
+  console.log(`🔍 Rendering InspectionList with ${filtered.length} filtered items out of ${inspections.length} total`);
+
   return (
     <div className="space-y-6 animate-fade-in">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">

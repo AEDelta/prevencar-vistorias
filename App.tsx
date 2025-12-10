@@ -189,6 +189,10 @@ const App: React.FC = () => {
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const items: Inspection[] = snapshot.docs.map(d => ({ id: d.id, ...(d.data() as any) }));
       setInspections(items);
+      console.log(`🔍 Inspections loaded: ${items.length}`);
+      if ((performance as any).memory) {
+        console.log(`📊 Memory usage: ${Math.round((performance as any).memory.usedJSHeapSize / 1024 / 1024)} MB used, ${Math.round((performance as any).memory.totalJSHeapSize / 1024 / 1024)} MB total`);
+      }
     }, (err) => {
       console.error('Erro ao sincronizar inspeções do Firestore', err);
     });
