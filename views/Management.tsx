@@ -1,15 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
-import { Users, Truck, Briefcase, Plus, ArrowLeft, Trash2, Edit2, User as UserIcon, Lock, Check, AlertTriangle, Download, FileText, BarChart3 } from 'lucide-react';
-import { User, Indication, ServiceItem, Role, VehicleCategory, Inspection } from '../types';
+import { Users, Truck, Briefcase, Plus, ArrowLeft, Trash2, Edit2, User as UserIcon, Lock, Check, AlertTriangle, Download, FileText, BarChart3, Bell } from 'lucide-react';
+import { User, Indication, ServiceItem, Role, VehicleCategory, Inspection, Notification } from '../types';
 import { exportToExcel, exportToPDF } from '../utils/exportUtils';
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { auth, db } from '../firebase';
-import { doc, setDoc } from 'firebase/firestore';
+import { doc, setDoc, collection, query, orderBy, limit, getDocs, updateDoc } from 'firebase/firestore';
 
 // Export mock fallback data for InspectionForm dropdowns if needed
 export const MOCK_INDICATIONS_FALLBACK: Indication[] = [
@@ -101,7 +101,7 @@ export const Management: React.FC<ManagementProps> = ({
     onSaveIndication, onDeleteIndication,
     onSaveService, onDeleteService
 }) => {
-  const [activeTab, setActiveTab] = useState<'users' | 'indications' | 'services' | 'summary'>('users');
+  const [activeTab, setActiveTab] = useState<'users' | 'indications' | 'services' | 'summary' | 'notifications'>('users');
   const [viewMode, setViewMode] = useState<'list' | 'form'>('list');
 
   // Form States
@@ -109,6 +109,10 @@ export const Management: React.FC<ManagementProps> = ({
   const [userForm, setUserForm] = useState<Partial<User>>({});
   const [indicationForm, setIndicationForm] = useState<Partial<Indication>>({});
   const [serviceForm, setServiceForm] = useState<Partial<ServiceItem>>({});
+
+  // Notifications
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [unreadCount, setUnreadCount] = useState(0);
 
   // Profile Form
   const [profileForm, setProfileForm] = useState<Partial<User>>({});
@@ -209,6 +213,51 @@ export const Management: React.FC<ManagementProps> = ({
   const isFinance = currentUser?.role === 'financeiro';
 
   const isProfileReadOnly = currentUser?.role !== 'admin';
+
+  const handleExportInspections = (type: 'excel') => {
+    try {
+      if (inspections.length === 0) {
+        alert('Nenhuma vistoria para exportar');
+        return;
+      }
+
+      const timestamp = new Date().toISOString().split('T')[0];
+
+      const data = inspections.map(inspection => ({
+        'ID': inspection.id,
+        'Data': new Date(inspection.date).toLocaleDateString('pt-BR'),
+        'Modelo do Veículo': inspection.vehicleModel,
+        'Placa': inspection.licensePlate,
+        'Categoria do Veículo': inspection.vehicleCategory,
+        'Nome do Cliente': inspection.client.name,
+        'CPF do Cliente': maskDocument(inspection.client.cpf),
+        'Endereço do Cliente': `${inspection.client.address}, ${inspection.client.number}${inspection.client.complement ? `, ${inspection.client.complement}` : ''}`,
+        'CEP do Cliente': inspection.client.cep,
+        'Vistoriador': inspection.inspector || '',
+        'Indicação': inspection.indicationName || '',
+        'Serviços Selecionados': inspection.selectedServices.map(s => `${s.name} (R$ ${s.chargedValue})`).join('; '),
+        'Valor Total': inspection.totalValue,
+        'Valor Cobrado': inspection.chargedValue || inspection.totalValue,
+        'Status': inspection.status,
+        'Status de Pagamento': inspection.paymentStatus || '',
+        'Observações': inspection.observations || '',
+        'Vistoria Externa': inspection.externalInspection ? 'Sim' : 'Não',
+        'Contato': inspection.contact || '',
+        'NFE': inspection.nfe || '',
+        'Data de Pagamento': inspection.data_pagamento ? new Date(inspection.data_pagamento).toLocaleDateString('pt-BR') : '',
+        'Mês de Referência': inspection.mes_referencia || '',
+        'Valor Financeiro': inspection.valor || inspection.totalValue
+      }));
+
+      const worksheet = XLSX.utils.json_to_sheet(data);
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, 'Vistorias');
+      XLSX.writeFile(workbook, `vistorias_${timestamp}.xlsx`);
+    } catch (error) {
+      console.error('Erro ao exportar vistorias:', error);
+      alert('Erro ao exportar vistorias');
+    }
+  };
 
   const handleExportUsers = (type: 'pdf' | 'excel') => {
     try {

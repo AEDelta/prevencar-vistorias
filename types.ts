@@ -120,6 +120,17 @@ export interface ServiceItem {
    description: string;
 }
 
+export interface Notification {
+   id: string;
+   type: 'inspection_created' | 'inspection_updated' | 'user_created' | 'user_updated' | 'indication_created' | 'indication_updated' | 'service_created' | 'service_updated';
+   message: string;
+   userId: string;
+   userName: string;
+   timestamp: string; // ISO string
+   read: boolean;
+   relatedId?: string; // ID of the related item (inspection, user, etc.)
+}
+
 // Props for Navigation
 export interface NavProps {
   currentView: ViewState;
