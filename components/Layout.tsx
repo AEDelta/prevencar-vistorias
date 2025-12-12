@@ -155,9 +155,7 @@ export const Layout: React.FC<LayoutProps> = ({ currentView, changeView, logout,
                 >
                     <Menu size={24} />
                 </button>
-                <img src="/logo.png" alt="Prevencar Logo" className="hidden md:block w-[180px] h-auto mr-4" />
                 <h2 className="text-xl font-bold text-gray-800 hidden md:block tracking-tight">{getPageTitle()}</h2>
-                <img src="/logo.png" alt="Prevencar Logo" className="md:hidden w-20 h-20" />
             </div>
 
             <div className="flex items-center space-x-2 md:space-x-4">
