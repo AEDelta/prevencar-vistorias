@@ -1,0 +1,1 @@
+                      R$ {inspections.reduce((sum, i) = + (i.totalValue 

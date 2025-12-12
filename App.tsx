@@ -245,7 +245,7 @@ const App: React.FC = () => {
 
   const atualizar_status_ficha = (ficha: Inspection) => {
     // Now based on status
-    return ficha.status === 'Concluída' ? 'Concluída' : 'Incompleta';
+    return ficha.status === 'Concluída' ? 'Concluída' : 'No Caixa';
   };
 
   const handleSaveInspection = (inspection: Inspection) => {
@@ -255,13 +255,13 @@ const App: React.FC = () => {
       inspection.mes_referencia = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
     }
 
-    // Update ficha completeness before save
-    atualizar_status_ficha(inspection);
-
     // Automatically advance status: Iniciada → No Caixa
     if (inspection.status === 'Iniciada') {
       inspection.status = 'No Caixa';
     }
+
+    // Update ficha completeness before save
+    inspection.status = atualizar_status_ficha(inspection);
 
     // Ensure paymentStatus exists and defaults sensibly
     if (!inspection.paymentStatus) {
@@ -409,7 +409,7 @@ const App: React.FC = () => {
       case ViewState.HOME:
         return (
           <Layout currentView={currentView} changeView={setCurrentView} logout={handleLogout} currentUser={currentUser}>
-            <Home changeView={setCurrentView} startNewInspection={handleStartNewInspection} currentUser={currentUser} inspections={inspections} />
+            <Home changeView={setCurrentView} startNewInspection={handleStartNewInspection} currentUser={currentUser} inspections={inspections} services={services} />
           </Layout>
         );
       case ViewState.INSPECTION_LIST:

@@ -1,15 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
-import { Users, Truck, Briefcase, Plus, ArrowLeft, Trash2, Edit2, User as UserIcon, Lock, Check, AlertTriangle, Download, FileText, BarChart3, Bell } from 'lucide-react';
-import { User, Indication, ServiceItem, Role, VehicleCategory, Inspection, Notification } from '../types';
+import { Users, Truck, Briefcase, Plus, ArrowLeft, Trash2, Edit2, User as UserIcon, Lock, Check, AlertTriangle, Download, FileText, BarChart3 } from 'lucide-react';
+import { User, Indication, ServiceItem, Role, VehicleCategory, Inspection } from '../types';
 import { exportToExcel, exportToPDF } from '../utils/exportUtils';
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { auth, db } from '../firebase';
-import { doc, setDoc, collection, query, orderBy, limit, getDocs, updateDoc } from 'firebase/firestore';
+import { doc, setDoc } from 'firebase/firestore';
 
 // Export mock fallback data for InspectionForm dropdowns if needed
 export const MOCK_INDICATIONS_FALLBACK: Indication[] = [
@@ -101,7 +101,7 @@ export const Management: React.FC<ManagementProps> = ({
     onSaveIndication, onDeleteIndication,
     onSaveService, onDeleteService
 }) => {
-  const [activeTab, setActiveTab] = useState<'users' | 'indications' | 'services' | 'summary' | 'notifications'>('users');
+  const [activeTab, setActiveTab] = useState<'users' | 'indications' | 'services' | 'summary'>('users');
   const [viewMode, setViewMode] = useState<'list' | 'form'>('list');
 
   // Form States
@@ -109,10 +109,6 @@ export const Management: React.FC<ManagementProps> = ({
   const [userForm, setUserForm] = useState<Partial<User>>({});
   const [indicationForm, setIndicationForm] = useState<Partial<Indication>>({});
   const [serviceForm, setServiceForm] = useState<Partial<ServiceItem>>({});
-
-  // Notifications
-  const [notifications, setNotifications] = useState<Notification[]>([]);
-  const [unreadCount, setUnreadCount] = useState(0);
 
   // Profile Form
   const [profileForm, setProfileForm] = useState<Partial<User>>({});
@@ -208,56 +204,16 @@ export const Management: React.FC<ManagementProps> = ({
       setViewMode('list');
   };
 
+  // Profile Update (Mock)
+  const handleUpdateProfile = (e: React.FormEvent) => {
+      e.preventDefault();
+      alert("Dados atualizados com sucesso!");
+  };
 
   const isAdmin = currentUser?.role === 'admin';
   const isFinance = currentUser?.role === 'financeiro';
 
   const isProfileReadOnly = currentUser?.role !== 'admin';
-
-  const handleExportInspections = (type: 'excel') => {
-    try {
-      if (inspections.length === 0) {
-        alert('Nenhuma vistoria para exportar');
-        return;
-      }
-
-      const timestamp = new Date().toISOString().split('T')[0];
-
-      const data = inspections.map(inspection => ({
-        'ID': inspection.id,
-        'Data': new Date(inspection.date).toLocaleDateString('pt-BR'),
-        'Modelo do Veículo': inspection.vehicleModel,
-        'Placa': inspection.licensePlate,
-        'Categoria do Veículo': inspection.vehicleCategory,
-        'Nome do Cliente': inspection.client.name,
-        'CPF do Cliente': maskDocument(inspection.client.cpf),
-        'Endereço do Cliente': `${inspection.client.address}, ${inspection.client.number}${inspection.client.complement ? `, ${inspection.client.complement}` : ''}`,
-        'CEP do Cliente': inspection.client.cep,
-        'Vistoriador': inspection.inspector || '',
-        'Indicação': inspection.indicationName || '',
-        'Serviços Selecionados': inspection.selectedServices.map(s => `${s.name} (R$ ${s.chargedValue})`).join('; '),
-        'Valor Total': inspection.totalValue,
-        'Valor Cobrado': inspection.chargedValue || inspection.totalValue,
-        'Status': inspection.status,
-        'Status de Pagamento': inspection.paymentStatus || '',
-        'Observações': inspection.observations || '',
-        'Vistoria Externa': inspection.externalInspection ? 'Sim' : 'Não',
-        'Contato': inspection.contact || '',
-        'NFE': inspection.nfe || '',
-        'Data de Pagamento': inspection.data_pagamento ? new Date(inspection.data_pagamento).toLocaleDateString('pt-BR') : '',
-        'Mês de Referência': inspection.mes_referencia || '',
-        'Valor Financeiro': inspection.valor || inspection.totalValue
-      }));
-
-      const worksheet = XLSX.utils.json_to_sheet(data);
-      const workbook = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(workbook, worksheet, 'Vistorias');
-      XLSX.writeFile(workbook, `vistorias_${timestamp}.xlsx`);
-    } catch (error) {
-      console.error('Erro ao exportar vistorias:', error);
-      alert('Erro ao exportar vistorias');
-    }
-  };
 
   const handleExportUsers = (type: 'pdf' | 'excel') => {
     try {
@@ -456,7 +412,7 @@ export const Management: React.FC<ManagementProps> = ({
                         </div>
                     </div>
                     
-                    <div className="overflow-x-auto rounded-xl border border-gray-100">
+                    <div className="overflow-hidden rounded-xl border border-gray-100">
                         <table className="w-full text-left border-collapse">
                             <thead>
                                 <tr className="bg-gray-50 border-b border-gray-100">
@@ -483,10 +439,10 @@ export const Management: React.FC<ManagementProps> = ({
                                             <button 
                                                 type="button" 
                                                 onClick={() => prepareEdit(user.id, 'user')} 
-                                                className="text-gray-400 hover:text-brand-blue p-3 rounded-lg hover:bg-blue-50 transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center" 
+                                                className="text-gray-400 hover:text-brand-blue p-2 rounded-lg hover:bg-blue-50 transition-colors" 
                                                 title="Editar"
                                             >
-                                                <Edit2 size={20} />
+                                                <Edit2 size={18} />
                                             </button>
                                             <button 
                                                 type="button"
@@ -496,10 +452,10 @@ export const Management: React.FC<ManagementProps> = ({
                                                         onDeleteUser(user.id);
                                                     }
                                                 }} 
-                                                className="text-gray-400 hover:text-brand-red p-3 rounded-lg hover:bg-red-50 transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"
+                                                className="text-gray-400 hover:text-brand-red p-2 rounded-lg hover:bg-red-50 transition-colors"
                                                 title="Excluir Usuário"
                                             >
-                                                <Trash2 size={20} />
+                                                <Trash2 size={18} />
                                             </button>
                                         </td>
                                     </tr>
@@ -608,13 +564,13 @@ export const Management: React.FC<ManagementProps> = ({
                             </Button>
                         </div>
                     </div>
-                     <div className="overflow-x-auto rounded-xl border border-gray-100">
+                     <div className="overflow-hidden rounded-xl border border-gray-100">
                         <table className="w-full text-left border-collapse">
                             <thead>
                                 <tr className="bg-gray-50 border-b border-gray-100">
                                     <th className="p-4 font-semibold text-gray-600 text-sm uppercase tracking-wider">Nome</th>
                                     <th className="p-4 font-semibold text-gray-600 text-sm uppercase tracking-wider">Documento</th>
-                                    <th className="p-4 font-semibold text-gray-600 text-sm uppercase tracking-wider">Contato</th><th className="p-4 font-semibold text-gray-600 text-sm uppercase tracking-wider">Email</th>
+                                    <th className="p-4 font-semibold text-gray-600 text-sm uppercase tracking-wider">Contato</th>
                                     <th className="p-4 text-right font-semibold text-gray-600 text-sm uppercase tracking-wider">Ações</th>
                                 </tr>
                             </thead>
@@ -623,10 +579,10 @@ export const Management: React.FC<ManagementProps> = ({
                                     <tr key={p.id} className="hover:bg-gray-50 transition-colors">
                                         <td className="p-4 font-medium text-gray-800">{p.name}</td>
                                         <td className="p-4 text-gray-600 font-mono text-sm">{maskDocument(p.document || '')}</td>
-                                        <td className="p-4 text-gray-600 text-sm">{p.phone}</td><td className="p-4 text-gray-600 text-sm">{p.email}</td>
+                                        <td className="p-4 text-gray-600 text-sm">{p.phone}</td>
                                         <td className="p-4 text-right flex justify-end items-center gap-2">
-                                            <button type="button" onClick={() => prepareEdit(p.id, 'indication')} className="text-gray-400 hover:text-brand-blue p-3 rounded-lg hover:bg-blue-50 transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center" title="Editar">
-                                                <Edit2 size={20} />
+                                            <button type="button" onClick={() => prepareEdit(p.id, 'indication')} className="text-gray-400 hover:text-brand-blue p-2 rounded-lg hover:bg-blue-50 transition-colors" title="Editar">
+                                                <Edit2 size={18} />
                                             </button>
                                             <button 
                                                 type="button"
@@ -636,10 +592,10 @@ export const Management: React.FC<ManagementProps> = ({
                                                         onDeleteIndication(p.id);
                                                     }
                                                 }}
-                                                className="text-gray-400 hover:text-brand-red p-3 rounded-lg hover:bg-red-50 transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"
+                                                className="text-gray-400 hover:text-brand-red p-2 rounded-lg hover:bg-red-50 transition-colors"
                                                 title="Excluir Indicação"
                                             >
-                                                <Trash2 size={20} />
+                                                <Trash2 size={18} />
                                             </button>
                                         </td>
                                     </tr>
@@ -684,6 +640,9 @@ export const Management: React.FC<ManagementProps> = ({
                             placeholder="(00) 00000-0000"
                         />
                         <Input label="Email" value={indicationForm.email || ''} onChange={e => setIndicationForm({...indicationForm, email: e.target.value})} className="bg-gray-50" />
+                        <Input label="CEP" value={indicationForm.cep || ''} onChange={e => setIndicationForm({...indicationForm, cep: e.target.value})} className="bg-gray-50" />
+                        <Input label="Endereço" value={indicationForm.address || ''} onChange={e => setIndicationForm({...indicationForm, address: e.target.value})} className="bg-gray-50" />
+                        <Input label="Número" value={indicationForm.number || ''} onChange={e => setIndicationForm({...indicationForm, number: e.target.value})} className="bg-gray-50" />
                         {/* Per-service price overrides */}
                         <div className="mt-4 border-t pt-4">
                             <h4 className="text-sm font-semibold text-gray-700 mb-2">Preços por Serviço (opcional)</h4>
@@ -752,7 +711,7 @@ export const Management: React.FC<ManagementProps> = ({
                             <Briefcase size={18} className="mr-2"/> Novo Serviço
                         </Button>
                     </div>
-                    <div className="overflow-x-auto rounded-xl border border-gray-100">
+                    <div className="overflow-hidden rounded-xl border border-gray-100">
                         <table className="w-full text-left border-collapse">
                             <thead>
                                 <tr className="bg-gray-50 border-b border-gray-100">
@@ -765,8 +724,8 @@ export const Management: React.FC<ManagementProps> = ({
                                     <tr key={s.id} className="hover:bg-gray-50 transition-colors">
                                         <td className="p-4 font-bold text-gray-800">{s.name}</td>
                                         <td className="p-4 text-right flex justify-end items-center gap-2">
-                                             <button type="button" onClick={() => prepareEdit(s.id, 'service')} className="text-gray-400 hover:text-brand-blue p-3 rounded-lg hover:bg-blue-50 transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center" title="Editar">
-                                                <Edit2 size={20} />
+                                             <button type="button" onClick={() => prepareEdit(s.id, 'service')} className="text-gray-400 hover:text-brand-blue p-2 rounded-lg hover:bg-blue-50 transition-colors" title="Editar">
+                                                <Edit2 size={18} />
                                             </button>
                                             <button 
                                                 type="button"
@@ -776,10 +735,10 @@ export const Management: React.FC<ManagementProps> = ({
                                                         onDeleteService(s.id);
                                                     }
                                                 }} 
-                                                className="text-gray-400 hover:text-brand-red p-3 rounded-lg hover:bg-red-50 transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"
+                                                className="text-gray-400 hover:text-brand-red p-2 rounded-lg hover:bg-red-50 transition-colors"
                                                 title="Excluir Serviço"
                                             >
-                                                <Trash2 size={20} />
+                                                <Trash2 size={18} />
                                             </button>
                                         </td>
                                     </tr>
