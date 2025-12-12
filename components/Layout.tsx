@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { NavProps, ViewState } from '../types';
-import { Menu, LogOut, Home, FileText, Settings, User as UserIcon, ChevronDown, Lock, Moon, Sun, BarChart3 } from 'lucide-react';
+import { Menu, LogOut, Home, FileText, Settings, User as UserIcon, ChevronDown, Lock, BarChart3, Bell } from 'lucide-react';
 
 interface LayoutProps extends NavProps {
   children: React.ReactNode;
@@ -9,20 +9,19 @@ interface LayoutProps extends NavProps {
 export const Layout: React.FC<LayoutProps> = ({ currentView, changeView, logout, children, currentUser }) => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
-  const [isDarkMode, setIsDarkMode] = useState(() => {
-    if (typeof window !== 'undefined') {
-      return localStorage.getItem('darkMode') === 'true' || window.matchMedia('(prefers-color-scheme: dark)').matches;
-    }
-    return false;
-  });
+  const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
 
   const userMenuRef = useRef<HTMLDivElement>(null);
+  const notificationsMenuRef = useRef<HTMLDivElement>(null);
 
   // Close dropdowns when clicking outside
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (userMenuRef.current && !userMenuRef.current.contains(event.target as Node)) {
         setIsUserMenuOpen(false);
+      }
+      if (notificationsMenuRef.current && !notificationsMenuRef.current.contains(event.target as Node)) {
+        setIsNotificationsOpen(false);
       }
     }
     document.addEventListener("mousedown", handleClickOutside);
@@ -31,19 +30,7 @@ export const Layout: React.FC<LayoutProps> = ({ currentView, changeView, logout,
     };
   }, []);
 
-  // Dark mode effect
-  useEffect(() => {
-    if (isDarkMode) {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-    }
-    localStorage.setItem('darkMode', isDarkMode.toString());
-  }, [isDarkMode]);
 
-  const toggleDarkMode = () => {
-    setIsDarkMode(!isDarkMode);
-  };
 
   const navItems = [
     { label: 'Home', view: ViewState.HOME, icon: <Home size={20} />, roles: ['admin', 'financeiro', 'vistoriador'] },
@@ -72,8 +59,16 @@ export const Layout: React.FC<LayoutProps> = ({ currentView, changeView, logout,
     }
   };
 
+  // Mock notifications for admin
+  const notifications = [
+    { id: 1, message: 'Novo usuário cadastrado: João Silva', time: '2 min atrás', type: 'user' },
+    { id: 2, message: 'Vistoria criada: Honda Civic - ABC-1234', time: '5 min atrás', type: 'inspection' },
+    { id: 3, message: 'Pagamento confirmado: R$ 250,00', time: '10 min atrás', type: 'payment' },
+    { id: 4, message: 'Usuário editado: Maria Oliveira', time: '1 hora atrás', type: 'user' },
+  ];
+
   return (
-    <div className="min-h-screen flex flex-col md:flex-row bg-brand-bg dark:bg-brand-bg font-sans">
+    <div className="min-h-screen flex flex-col md:flex-row bg-brand-bg font-sans">
       {/* Sidebar */}
       <aside className={`fixed inset-y-0 left-0 z-40 w-64 transform transition-transform duration-300 ease-in-out md:relative md:translate-x-0 
         bg-gradient-to-b from-brand-blue to-[#2a3d66] text-white shadow-2xl flex flex-col
@@ -83,7 +78,7 @@ export const Layout: React.FC<LayoutProps> = ({ currentView, changeView, logout,
         <div className="h-20 flex items-center px-6 border-b border-white/10 bg-black/10">
           <div className="flex items-center space-x-3">
             <div className="bg-brand-yellow p-2 rounded-xl text-brand-blue shadow-lg">
-              <img src="/logo.png" alt="Prevencar Logo" className="w-8 h-8" />
+              <img src="/logo.png" alt="Prevencar Logo" className="w-[150px] h-auto" />
             </div>
             <div className="flex flex-col">
               <span className="text-xl font-bold tracking-wide leading-none">Prevencar</span>
@@ -154,25 +149,55 @@ export const Layout: React.FC<LayoutProps> = ({ currentView, changeView, logout,
         {/* Top Header */}
         <header className="h-20 bg-white shadow-sm flex items-center justify-between px-6 z-20 sticky top-0 border-b border-gray-100">
             <div className="flex items-center">
-                <button 
+                <button
                     className="md:hidden mr-4 text-gray-600 hover:text-brand-blue p-2 rounded-lg hover:bg-gray-100"
                     onClick={() => setIsMobileMenuOpen(true)}
                 >
                     <Menu size={24} />
                 </button>
+                <img src="/logo.png" alt="Prevencar Logo" className="hidden md:block w-[180px] h-auto mr-4" />
                 <h2 className="text-xl font-bold text-gray-800 hidden md:block tracking-tight">{getPageTitle()}</h2>
-                <div className="md:hidden font-bold text-brand-blue text-lg">Prevencar</div>
+                <img src="/logo.png" alt="Prevencar Logo" className="md:hidden w-20 h-20" />
             </div>
 
             <div className="flex items-center space-x-2 md:space-x-4">
-                {/* Dark Mode Toggle */}
-                <button
-                  onClick={toggleDarkMode}
-                  className="p-2 rounded-lg bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
-                  aria-label="Toggle dark mode"
-                >
-                  {isDarkMode ? <Sun size={20} className="text-yellow-500" /> : <Moon size={20} className="text-gray-600 dark:text-gray-300" />}
-                </button>
+                {/* Notifications for Admin */}
+                {currentUser?.role === 'admin' && (
+                  <div className="relative" ref={notificationsMenuRef}>
+                    <button
+                      onClick={() => setIsNotificationsOpen(!isNotificationsOpen)}
+                      className={`p-2 rounded-lg bg-gray-100 hover:bg-gray-200 transition-colors relative ${isNotificationsOpen ? 'bg-gray-200' : ''}`}
+                      aria-label="Notificações"
+                    >
+                      <Bell size={20} className="text-gray-600" />
+                      {notifications.length > 0 && (
+                        <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
+                          {notifications.length}
+                        </span>
+                      )}
+                    </button>
+
+                    {isNotificationsOpen && (
+                      <div className="absolute right-0 mt-3 w-80 bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden transform origin-top-right animate-in fade-in slide-in-from-top-2">
+                        <div className="p-4 border-b border-gray-50 bg-brand-blue text-white">
+                          <p className="font-bold text-lg">Notificações</p>
+                          <p className="text-xs text-blue-200">Mudanças recentes no sistema</p>
+                        </div>
+                        <div className="max-h-64 overflow-y-auto">
+                          {notifications.map((notification) => (
+                            <div key={notification.id} className="p-3 border-b border-gray-50 hover:bg-gray-50 transition-colors">
+                              <p className="text-sm text-gray-700">{notification.message}</p>
+                              <p className="text-xs text-gray-500 mt-1">{notification.time}</p>
+                            </div>
+                          ))}
+                        </div>
+                        <div className="p-3 text-center">
+                          <button className="text-sm text-brand-blue hover:underline">Ver todas as notificações</button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 {/* User Profile Dropdown */}
                 <div className="relative" ref={userMenuRef}>

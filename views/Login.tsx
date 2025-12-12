@@ -60,7 +60,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin, changeView }) => {
       <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md p-8 md:p-10 relative z-10 mx-auto">
         <div className="flex flex-col items-center mb-8">
           <div className="bg-white p-4 rounded-2xl mb-6 shadow-lg shadow-blue-900/10 ring-1 ring-gray-100">
-             <img src={logo} alt="Prevencar Logo" className="w-16 h-16" />
+             <img src={logo} alt="Prevencar Logo" className="w-[260px] h-auto" />
           </div>
           <h1 className="text-3xl font-extrabold text-gray-800 tracking-tight">Prevencar</h1>
           <h2 className="text-sm font-bold text-brand-red uppercase tracking-[0.2em] mt-1">Vistorias</h2>
@@ -118,11 +118,6 @@ export const Login: React.FC<LoginProps> = ({ onLogin, changeView }) => {
              {loading ? 'Entrando...' : 'Acessar Sistema'}
           </Button>
 
-          <div className="text-xs text-center text-gray-400 mt-4 bg-gray-50 p-2 rounded">
-              <p>Conta de Admin:</p>
-              <p>Email: admin@prevencar.com.br</p>
-              <p>Senha: admin123</p>
-           </div>
         </form>
 
         <div className="mt-10 pt-6 border-t border-gray-100 text-center">
