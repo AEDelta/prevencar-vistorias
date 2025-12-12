@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { NavProps, ViewState } from '../types';
-import { Menu, LogOut, Home, FileText, Settings, User as UserIcon, ChevronDown, Lock } from 'lucide-react';
+import { Menu, LogOut, Home, FileText, Settings, User as UserIcon, ChevronDown, Lock, Moon, Sun } from 'lucide-react';
 
 interface LayoutProps extends NavProps {
   children: React.ReactNode;
@@ -9,6 +9,12 @@ interface LayoutProps extends NavProps {
 export const Layout: React.FC<LayoutProps> = ({ currentView, changeView, logout, children, currentUser }) => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+  const [isDarkMode, setIsDarkMode] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('darkMode') === 'true' || window.matchMedia('(prefers-color-scheme: dark)').matches;
+    }
+    return false;
+  });
 
   const userMenuRef = useRef<HTMLDivElement>(null);
 
@@ -24,6 +30,20 @@ export const Layout: React.FC<LayoutProps> = ({ currentView, changeView, logout,
       document.removeEventListener("mousedown", handleClickOutside);
     };
   }, []);
+
+  // Dark mode effect
+  useEffect(() => {
+    if (isDarkMode) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+    localStorage.setItem('darkMode', isDarkMode.toString());
+  }, [isDarkMode]);
+
+  const toggleDarkMode = () => {
+    setIsDarkMode(!isDarkMode);
+  };
 
   const navItems = [
     { label: 'Home', view: ViewState.HOME, icon: <Home size={20} />, roles: ['admin', 'financeiro', 'vistoriador'] },
@@ -52,7 +72,7 @@ export const Layout: React.FC<LayoutProps> = ({ currentView, changeView, logout,
   };
 
   return (
-    <div className="min-h-screen flex flex-col md:flex-row bg-brand-bg font-sans">
+    <div className="min-h-screen flex flex-col md:flex-row bg-brand-bg dark:bg-brand-bg font-sans">
       {/* Sidebar */}
       <aside className={`fixed inset-y-0 left-0 z-40 w-64 transform transition-transform duration-300 ease-in-out md:relative md:translate-x-0 
         bg-gradient-to-b from-brand-blue to-[#2a3d66] text-white shadow-2xl flex flex-col
@@ -62,7 +82,7 @@ export const Layout: React.FC<LayoutProps> = ({ currentView, changeView, logout,
         <div className="h-20 flex items-center px-6 border-b border-white/10 bg-black/10">
           <div className="flex items-center space-x-3">
             <div className="bg-brand-yellow p-2 rounded-xl text-brand-blue shadow-lg">
-              <FileText size={24} strokeWidth={2.5} />
+              <img src="/logo.png" alt="Prevencar Logo" className="w-6 h-6" />
             </div>
             <div className="flex flex-col">
               <span className="text-xl font-bold tracking-wide leading-none">Prevencar</span>
@@ -144,6 +164,15 @@ export const Layout: React.FC<LayoutProps> = ({ currentView, changeView, logout,
             </div>
 
             <div className="flex items-center space-x-2 md:space-x-4">
+                {/* Dark Mode Toggle */}
+                <button
+                  onClick={toggleDarkMode}
+                  className="p-2 rounded-lg bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                  aria-label="Toggle dark mode"
+                >
+                  {isDarkMode ? <Sun size={20} className="text-yellow-500" /> : <Moon size={20} className="text-gray-600 dark:text-gray-300" />}
+                </button>
+
                 {/* User Profile Dropdown */}
                 <div className="relative" ref={userMenuRef}>
                     <button 

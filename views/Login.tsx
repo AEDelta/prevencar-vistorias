@@ -5,6 +5,7 @@ import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { signInWithEmailAndPassword, setPersistence, browserSessionPersistence, browserLocalPersistence } from 'firebase/auth';
 import { auth } from '../firebase';
+import logo from '../img/logo.png';
 
 interface LoginProps {
   onLogin: (email: string, password: string) => void;
@@ -59,7 +60,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin, changeView }) => {
       <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md p-8 md:p-10 relative z-10 mx-auto">
         <div className="flex flex-col items-center mb-8">
           <div className="bg-white p-4 rounded-2xl mb-6 shadow-lg shadow-blue-900/10 ring-1 ring-gray-100">
-             <ShieldCheck className="text-brand-blue" size={48} strokeWidth={2} />
+             <img src={logo} alt="Prevencar Logo" className="w-12 h-12" />
           </div>
           <h1 className="text-3xl font-extrabold text-gray-800 tracking-tight">Prevencar</h1>
           <h2 className="text-sm font-bold text-brand-red uppercase tracking-[0.2em] mt-1">Vistorias</h2>

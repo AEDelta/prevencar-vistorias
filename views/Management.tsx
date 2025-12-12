@@ -456,7 +456,7 @@ export const Management: React.FC<ManagementProps> = ({
                         </div>
                     </div>
                     
-                    <div className="overflow-hidden rounded-xl border border-gray-100">
+                    <div className="overflow-x-auto rounded-xl border border-gray-100">
                         <table className="w-full text-left border-collapse">
                             <thead>
                                 <tr className="bg-gray-50 border-b border-gray-100">
@@ -483,10 +483,10 @@ export const Management: React.FC<ManagementProps> = ({
                                             <button 
                                                 type="button" 
                                                 onClick={() => prepareEdit(user.id, 'user')} 
-                                                className="text-gray-400 hover:text-brand-blue p-2 rounded-lg hover:bg-blue-50 transition-colors" 
+                                                className="text-gray-400 hover:text-brand-blue p-3 rounded-lg hover:bg-blue-50 transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center" 
                                                 title="Editar"
                                             >
-                                                <Edit2 size={18} />
+                                                <Edit2 size={20} />
                                             </button>
                                             <button 
                                                 type="button"
@@ -496,10 +496,10 @@ export const Management: React.FC<ManagementProps> = ({
                                                         onDeleteUser(user.id);
                                                     }
                                                 }} 
-                                                className="text-gray-400 hover:text-brand-red p-2 rounded-lg hover:bg-red-50 transition-colors"
+                                                className="text-gray-400 hover:text-brand-red p-3 rounded-lg hover:bg-red-50 transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"
                                                 title="Excluir Usuário"
                                             >
-                                                <Trash2 size={18} />
+                                                <Trash2 size={20} />
                                             </button>
                                         </td>
                                     </tr>
@@ -608,13 +608,13 @@ export const Management: React.FC<ManagementProps> = ({
                             </Button>
                         </div>
                     </div>
-                     <div className="overflow-hidden rounded-xl border border-gray-100">
+                     <div className="overflow-x-auto rounded-xl border border-gray-100">
                         <table className="w-full text-left border-collapse">
                             <thead>
                                 <tr className="bg-gray-50 border-b border-gray-100">
                                     <th className="p-4 font-semibold text-gray-600 text-sm uppercase tracking-wider">Nome</th>
                                     <th className="p-4 font-semibold text-gray-600 text-sm uppercase tracking-wider">Documento</th>
-                                    <th className="p-4 font-semibold text-gray-600 text-sm uppercase tracking-wider">Contato</th>
+                                    <th className="p-4 font-semibold text-gray-600 text-sm uppercase tracking-wider">Contato</th><th className="p-4 font-semibold text-gray-600 text-sm uppercase tracking-wider">Email</th>
                                     <th className="p-4 text-right font-semibold text-gray-600 text-sm uppercase tracking-wider">Ações</th>
                                 </tr>
                             </thead>
@@ -623,10 +623,10 @@ export const Management: React.FC<ManagementProps> = ({
                                     <tr key={p.id} className="hover:bg-gray-50 transition-colors">
                                         <td className="p-4 font-medium text-gray-800">{p.name}</td>
                                         <td className="p-4 text-gray-600 font-mono text-sm">{maskDocument(p.document || '')}</td>
-                                        <td className="p-4 text-gray-600 text-sm">{p.phone}</td>
+                                        <td className="p-4 text-gray-600 text-sm">{p.phone}</td><td className="p-4 text-gray-600 text-sm">{p.email}</td>
                                         <td className="p-4 text-right flex justify-end items-center gap-2">
-                                            <button type="button" onClick={() => prepareEdit(p.id, 'indication')} className="text-gray-400 hover:text-brand-blue p-2 rounded-lg hover:bg-blue-50 transition-colors" title="Editar">
-                                                <Edit2 size={18} />
+                                            <button type="button" onClick={() => prepareEdit(p.id, 'indication')} className="text-gray-400 hover:text-brand-blue p-3 rounded-lg hover:bg-blue-50 transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center" title="Editar">
+                                                <Edit2 size={20} />
                                             </button>
                                             <button 
                                                 type="button"
@@ -636,10 +636,10 @@ export const Management: React.FC<ManagementProps> = ({
                                                         onDeleteIndication(p.id);
                                                     }
                                                 }}
-                                                className="text-gray-400 hover:text-brand-red p-2 rounded-lg hover:bg-red-50 transition-colors"
+                                                className="text-gray-400 hover:text-brand-red p-3 rounded-lg hover:bg-red-50 transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"
                                                 title="Excluir Indicação"
                                             >
-                                                <Trash2 size={18} />
+                                                <Trash2 size={20} />
                                             </button>
                                         </td>
                                     </tr>
@@ -752,7 +752,7 @@ export const Management: React.FC<ManagementProps> = ({
                             <Briefcase size={18} className="mr-2"/> Novo Serviço
                         </Button>
                     </div>
-                    <div className="overflow-hidden rounded-xl border border-gray-100">
+                    <div className="overflow-x-auto rounded-xl border border-gray-100">
                         <table className="w-full text-left border-collapse">
                             <thead>
                                 <tr className="bg-gray-50 border-b border-gray-100">
@@ -765,8 +765,8 @@ export const Management: React.FC<ManagementProps> = ({
                                     <tr key={s.id} className="hover:bg-gray-50 transition-colors">
                                         <td className="p-4 font-bold text-gray-800">{s.name}</td>
                                         <td className="p-4 text-right flex justify-end items-center gap-2">
-                                             <button type="button" onClick={() => prepareEdit(s.id, 'service')} className="text-gray-400 hover:text-brand-blue p-2 rounded-lg hover:bg-blue-50 transition-colors" title="Editar">
-                                                <Edit2 size={18} />
+                                             <button type="button" onClick={() => prepareEdit(s.id, 'service')} className="text-gray-400 hover:text-brand-blue p-3 rounded-lg hover:bg-blue-50 transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center" title="Editar">
+                                                <Edit2 size={20} />
                                             </button>
                                             <button 
                                                 type="button"
@@ -776,10 +776,10 @@ export const Management: React.FC<ManagementProps> = ({
                                                         onDeleteService(s.id);
                                                     }
                                                 }} 
-                                                className="text-gray-400 hover:text-brand-red p-2 rounded-lg hover:bg-red-50 transition-colors"
+                                                className="text-gray-400 hover:text-brand-red p-3 rounded-lg hover:bg-red-50 transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"
                                                 title="Excluir Serviço"
                                             >
-                                                <Trash2 size={18} />
+                                                <Trash2 size={20} />
                                             </button>
                                         </td>
                                     </tr>

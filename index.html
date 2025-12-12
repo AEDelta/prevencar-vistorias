@@ -8,6 +8,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
     <script>
       tailwind.config = {
+        darkMode: 'class',
         theme: {
           extend: {
             fontFamily: {
@@ -15,11 +16,11 @@
             },
             colors: {
               brand: {
-                red: '#c63030',
-                blue: '#354d81',
-                bg: '#e7e0e6',
-                mauve: '#944c62',
-                yellow: '#eec22b',
+                red: { DEFAULT: '#dc2626', dark: '#fca5a5' },
+                blue: { DEFAULT: '#2563eb', dark: '#93c5fd' },
+                bg: { DEFAULT: '#f1f5f9', dark: '#1e293b' },
+                mauve: { DEFAULT: '#7c3aed', dark: '#c4b5fd' },
+                yellow: { DEFAULT: '#f59e0b', dark: '#fcd34d' },
               }
             }
           }
