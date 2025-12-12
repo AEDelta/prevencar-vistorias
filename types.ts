@@ -4,7 +4,8 @@ export enum ViewState {
   HOME = 'HOME',
   INSPECTION_LIST = 'INSPECTION_LIST',
   INSPECTION_FORM = 'INSPECTION_FORM',
-  MANAGEMENT = 'MANAGEMENT'
+  MANAGEMENT = 'MANAGEMENT',
+  REPORTS = 'REPORTS'
 }
 
 export type Role = 'admin' | 'financeiro' | 'vistoriador';

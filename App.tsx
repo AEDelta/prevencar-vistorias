@@ -11,6 +11,7 @@ import { Home } from './views/Home';
 import { InspectionList } from './views/InspectionList';
 import { InspectionForm } from './views/InspectionForm';
 import { Management } from './views/Management';
+import { Reports } from './views/Reports';
 
 console.log('✅ App.tsx carregado');
 
@@ -439,6 +440,12 @@ const App: React.FC = () => {
               indications={indications}
               services={services}
             />
+          </Layout>
+        );
+      case ViewState.REPORTS:
+        return (
+          <Layout currentView={currentView} changeView={setCurrentView} logout={handleLogout} currentUser={currentUser}>
+            <Reports inspections={inspections} services={services} />
           </Layout>
         );
       case ViewState.MANAGEMENT:

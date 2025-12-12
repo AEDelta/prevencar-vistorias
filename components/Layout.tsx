@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { NavProps, ViewState } from '../types';
-import { Menu, LogOut, Home, FileText, Settings, User as UserIcon, ChevronDown, Lock, Moon, Sun } from 'lucide-react';
+import { Menu, LogOut, Home, FileText, Settings, User as UserIcon, ChevronDown, Lock, Moon, Sun, BarChart3 } from 'lucide-react';
 
 interface LayoutProps extends NavProps {
   children: React.ReactNode;
@@ -48,7 +48,8 @@ export const Layout: React.FC<LayoutProps> = ({ currentView, changeView, logout,
   const navItems = [
     { label: 'Home', view: ViewState.HOME, icon: <Home size={20} />, roles: ['admin', 'financeiro', 'vistoriador'] },
     { label: 'Fichas', view: ViewState.INSPECTION_LIST, icon: <FileText size={20} />, roles: ['admin', 'financeiro', 'vistoriador'] },
-    // Only Admin and Financeiro see Management (Cadastros)
+    // Only Admin and Financeiro see Reports and Management
+    { label: 'Relatórios', view: ViewState.REPORTS, icon: <BarChart3 size={20} />, roles: ['admin', 'financeiro'] },
     { label: 'Cadastros', view: ViewState.MANAGEMENT, icon: <Settings size={20} />, roles: ['admin', 'financeiro'] },
   ];
 
@@ -82,7 +83,7 @@ export const Layout: React.FC<LayoutProps> = ({ currentView, changeView, logout,
         <div className="h-20 flex items-center px-6 border-b border-white/10 bg-black/10">
           <div className="flex items-center space-x-3">
             <div className="bg-brand-yellow p-2 rounded-xl text-brand-blue shadow-lg">
-              <img src="/logo.png" alt="Prevencar Logo" className="w-6 h-6" />
+              <img src="/logo.png" alt="Prevencar Logo" className="w-8 h-8" />
             </div>
             <div className="flex flex-col">
               <span className="text-xl font-bold tracking-wide leading-none">Prevencar</span>
