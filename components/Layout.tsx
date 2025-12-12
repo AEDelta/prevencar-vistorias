@@ -78,7 +78,7 @@ export const Layout: React.FC<LayoutProps> = ({ currentView, changeView, logout,
         <div className="h-20 flex items-center px-6 border-b border-white/10 bg-black/10">
           <div className="flex items-center space-x-3">
             <div className="bg-brand-yellow p-2 rounded-xl text-brand-blue shadow-lg">
-              <img src="/logo.png" alt="Prevencar Logo" className="w-[150px] h-auto" />
+              <img src="/logo.png" alt="Prevencar Logo" className="w-24 h-auto" />
             </div>
             <div className="flex flex-col">
               <span className="text-xl font-bold tracking-wide leading-none">Prevencar</span>
@@ -155,7 +155,7 @@ export const Layout: React.FC<LayoutProps> = ({ currentView, changeView, logout,
                 >
                     <Menu size={24} />
                 </button>
-                <h2 className="text-xl font-bold text-gray-800 hidden md:block tracking-tight">{getPageTitle()}</h2>
+                <h2 className="text-lg md:text-xl font-bold text-gray-800 tracking-tight">{getPageTitle()}</h2>
             </div>
 
             <div className="flex items-center space-x-2 md:space-x-4">
@@ -253,7 +253,7 @@ export const Layout: React.FC<LayoutProps> = ({ currentView, changeView, logout,
         </header>
 
         {/* Scrollable Content */}
-        <main className="flex-1 overflow-y-auto bg-brand-bg p-4 md:p-8 scroll-smooth">
+        <main className="flex-1 overflow-y-auto bg-brand-bg p-3 md:p-6 scroll-smooth">
           <div className="max-w-7xl mx-auto pb-10">
             {children}
           </div>
